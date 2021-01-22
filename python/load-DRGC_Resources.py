@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-07 10:32:09 smathias>
+# Time-stamp: <2021-01-22 10:08:46 smathias>
 """Load DRGC resource data into TCRD via RSS API.
 
 Usage:
@@ -37,8 +37,9 @@ import logging
 import slm_util_functions as slmf
 
 PROGRAM = os.path.basename(sys.argv[0])
-LOGDIR = "../log/tcrd6logs"
-#LOGDIR = "../log/tcrd7logs"
+TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
+LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
+LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 # API Docs: https://rss.ccs.miami.edu/rss-apis/
 RSS_API_BASE_URL = 'https://rss.ccs.miami.edu/rss-api/'
@@ -50,6 +51,7 @@ def load(args, dba, logger, logfile):
   assert target_data, "Error getting target data: FATAL"
   rss_ct = len(target_data)
   ct = 0
+  skip_ct = 0
   res_ct = 0
   tmark = set()
   notfnd = set()
@@ -58,8 +60,12 @@ def load(args, dba, logger, logfile):
   if not args['--quiet']:
     print(f"Processing {rss_ct} target resource records...")
   for td in target_data:
-    ct += 1
     logger.info("Processing target resource data: {}".format(td))
+    ct += 1
+    slmf.update_progress(ct/rss_ct)
+    if not td['pharosReady']:
+      skip_ct += 1
+      continue
     sym = td['target']
     #rssid = td['id'].rsplit('/')[-1]
     rssid = td['id']
@@ -83,9 +89,9 @@ def load(args, dba, logger, logfile):
       continue
     tmark.add(tid)
     res_ct += 1
-    slmf.update_progress(ct/rss_ct)
   print(f"{ct} RSS target resource records processed.")
-  print("\nInserted {} new drgc_resource rows for {} targets".format(res_ct, len(tmark)))
+  print(f"  Skipped {skip_ct} non-pharosReady resources.")
+  print("Inserted {} new drgc_resource rows for {} targets".format(res_ct, len(tmark)))
   if notfnd:
     print("WARNING: No target found for {} symbols. See logfile {} for details.".format(len(notfnd), logfile))
   if mulfnd:

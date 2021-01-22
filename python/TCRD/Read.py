@@ -3,7 +3,7 @@ Read/Search (ie. SELECT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2020-12-14 12:00:50 smathias>
+Time-stamp: <2021-01-11 11:46:06 smathias>
 '''
 from contextlib import closing
 from collections import defaultdict
@@ -17,13 +17,25 @@ class ReadMethodsMixin:
     Returns   : A list of integers
     Scope     : Public
     '''
-    ids = []
     sql = "SELECT id FROM target"
     with closing(self._conn.cursor()) as curs:
       curs.execute(sql)
-      for row in curs:
-        ids.append(row[0])
+      ids = [row[0] for row in curs.fetchall()]
     return ids
+
+  def get_protein_ids(self):
+    '''
+    Function  : Get all TCRD protein ids
+    Arguments : N/A
+    Returns   : A list of integers
+    Scope     : Public
+    '''
+    sql = "SELECT id FROM protein"
+    with closing(self._conn.cursor()) as curs:
+      curs.execute(sql)
+      ids = [row[0] for row in curs.fetchall()]
+    return ids
+
 
   def find_target_ids(self, q, incl_alias=False):
     '''
@@ -117,7 +129,7 @@ class ReadMethodsMixin:
     '''
     Function  : Find id(s) of protein(s) that satisfy the input query criteria
     Arguments : A dictionary containing query criteria and an optional boolean flag
-    Returns   : A list of integers, or False if no targets are found
+    Returns   : A list of integers, or False if no proteins are found
     Examples  : Search by HGNC Gene Symbol:
                 target_ids = dba.find_protein_ids({'sym': 'CHERP'})
                 Search by UniProt Accession, including aliases:
@@ -170,7 +182,7 @@ class ReadMethodsMixin:
     '''
     Function  : Find id(s) of protein(s) that satisfy the input query criteria of xref type and value
     Arguments : A distionary containing query criteria
-    Returns   : A list of integers, or False if no targets are found
+    Returns   : A list of integers, or False if no proteins are found
     Examples  : Find protein(s) by RefSeq xref:
                 pids = dba.find_protein_ids_by_xref({'xtype': 'RefSeq', 'value': 'NM_123456'})
     Scope     : Public
@@ -184,6 +196,55 @@ class ReadMethodsMixin:
     params = (q['xtype'], q['value'])
     self._logger.debug(f"SQLpat: {sql}")
     self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      curs.execute(sql, params)
+      ids = [row[0] for row in curs.fetchall()]
+    return ids
+
+  def find_nhprotein_ids(self, q, species=False):
+    '''
+    Function  : Find id(s) of nhprotein(s) that satisfy the input query criteria
+    Arguments : A dictionary containing query criteria and an optional string specifying species
+    Returns   : A list of integers, or False if no nhproteins are found
+    Examples  : Search by HGNC Gene Symbol:
+                nhprotein_ids = dba.find_nhprotein_ids({'sym': 'Dact2', 'species': 'Mus musculus'})
+    Scope     : Public
+    '''
+    sql ="SELECT id FROM nhprotein WHERE "
+    if 'sym' in q:
+      if species:
+        sql += "sym = %s AND species = %s"
+        params = (q['sym'], species)
+      else:
+        sql += "sym = %s"
+        params = (q['sym'],)
+    elif 'uniprot' in q:
+      if species:
+        sql += "uniprot = %s AND species = %s"
+        params = (q['uniprot'], species)
+      else:
+        sql += "uniprot = %s"
+        params = (q['uniprot'],)
+    elif 'geneid' in q:
+      if species:
+        sql += "geneid = %s AND species = %s"
+        params = (q['geneid'], species)
+      else:
+        sql += "geneid = %s"
+        params = (q['d'],)
+    elif 'name' in q:
+      if species:
+        sql += "name = %s AND species = %s"
+        params = (q['name'], species)
+      else:
+        sql += "name = %s"
+        params = (q['name'],)
+    else:
+      self.warning("Invalid query parameters sent to find_nhprotein_ids(): ", q)
+      return False
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    ids = []
     with closing(self._conn.cursor()) as curs:
       curs.execute(sql, params)
       ids = [row[0] for row in curs.fetchall()]
@@ -516,6 +577,33 @@ class ReadMethodsMixin:
       for gr in curs:
         p['generifs'].append({'id': gr['id'], 'pubmed_ids': gr['pubmed_ids'], 'text': gr['text']})
       if not p['generifs']: del(p['generifs'])
+    t['components']['protein'].append(p)
+    return t
+
+  def get_target4impcrpt(self, id):
+    '''
+    Function  : Get a target with associated IMPC Ortholog Phenotypes
+    Arguments : An integer
+    Returns   : Dictionary containing target data.
+    Scope     : Public
+    '''
+    with closing(self._conn.cursor(dictionary=True, buffered=True)) as curs:
+      self._logger.debug("ID: %s" % id)
+      curs.execute("SELECT * FROM target WHERE id = %s", (id,))
+      t = curs.fetchone()
+      if not t: return False
+      # IMPC phenotypes (via Mouse ortholog) are protein-associated
+      t['components'] = {}
+      t['components']['protein'] = []
+      curs.execute("SELECT * FROM protein WHERE id = %s", (id,))
+      p = curs.fetchone()
+      if not p: return False
+      p['impcs'] = []
+      curs.execute("SELECT DISTINCT o.symbol, pt.term_id, pt.term_name, pt.top_level_term_id, pt.top_level_term_name, pt.p_value, pt.percentage_change, pt.effect_size, pt.procedure_name, pt.parameter_name, pt.statistical_method FROM ortholog o, nhprotein nhp, phenotype pt WHERE o.symbol = nhp.sym AND o.species = 'Mouse' AND nhp.species = 'Mus musculus' AND nhp.id = pt.nhprotein_id AND pt.gp_assoc AND o.protein_id = %s", (id,))
+      for pt in curs:
+        p['impcs'].append(pt)
+      if not p['impcs']:
+        del(p['impcs'])
     t['components']['protein'].append(p)
     return t
 
