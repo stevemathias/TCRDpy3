@@ -2,6 +2,9 @@
 # -SLM
 data/
 log/
+exports/
+SQL/dumps6/
+SQL/dumps7/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
