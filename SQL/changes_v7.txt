@@ -1,0 +1,3 @@
+alter table xref drop column nucleic_acid_id;
+
+change disease.dtype 'UniProt Disease' to 'UniProt'

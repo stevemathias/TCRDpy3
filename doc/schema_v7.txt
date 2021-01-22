@@ -1,0 +1,13 @@
+Create empty v7 schema with types
+---------------------------------
+[smathias@juniper SQL]$ mysqldump --no-data tcrd6 | sed 's/ AUTO_INCREMENT=[0-9]*\b//g' > create-TCRDv7.sql
+[smathias@juniper SQL]$ mysqldump --no-create-db --no-create-info tcrd6 cmpd_activity_type compartment_type data_type disease_type expression_type info_type pathway_type phenotype_type ppi_type xref_type > types_v7.sql
+mysql> create database tcrd7;
+mysql> use tcrd7
+mysql> \. create-TCRDv7.sql
+mysql> \. types_v7.sql
+Check that everything is good:
+mysql> SHOW TABLE STATUS FROM `tcrd7`;
+mysql> INSERT INTO dbinfo (dbname, schema_ver, data_ver, owner) VALUES ('tcrd7', '7.0.0', '0.0.0', 'smathias');
+[smathias@juniper SQL]$ mysqldump tcrd7 > create-TCRDv7.sql
+[smathias@juniper SQL]$ rm types_v7.sql

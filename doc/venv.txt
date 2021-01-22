@@ -1,0 +1,22 @@
+This is the migration of TCRD code to python3.
+
+Setup
+=====
+[smathias@juniper ~]$ mkdir TCRDpy3
+[smathias@juniper TCRDpy3]$ cd TCRDpy3
+[smathias@juniper TCRDpy3]$ mkdir doc
+[smathias@juniper TCRDpy3]$ mkdir loaders
+[smathias@juniper TCRDpy3]$ mkdir SQL
+[smathias@juniper TCRDpy3]$ mkdir python
+[smathias@juniper TCRDpy3]$ mkdir data
+[smathias@juniper TCRDpy3]$ touch doc/README
+
+venv stuff
+----------
+[smathias@juniper TCRDpy3]$ virtualenv venv
+[smathias@juniper TCRDpy3]$ source venv/bin/activate
+(venv) [smathias@juniper TCRDpy3]$ pip install ...
+
+(venv) [smathias@juniper TCRDpy3]$ pip freeze > requirements.txt
+(venv) [smathias@juniper TCRDpy3]$ deactivate
+
