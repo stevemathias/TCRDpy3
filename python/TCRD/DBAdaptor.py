@@ -3,7 +3,7 @@ Python3 API for IDG-KMC Target Central Repository Database versions >= 6.*.*
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-01-07 10:26:02 smathias>
+Time-stamp: <2021-02-25 08:07:53 smathias>
 '''
 import sys
 import platform
@@ -82,7 +82,7 @@ class DBAdaptor(CreateMethodsMixin, ReadMethodsMixin, UpdateMethodsMixin, Delete
       fh.setFormatter(fmtr)
       self._logger.addHandler(fh)
 
-    self._logger.info('Instantiating new TCRD DBAdaptor')
+    self._logger.debug('Instantiating new TCRD DBAdaptor')
     self._connect(host=dbhost, port=dbport, db=dbname, user=dbuser, passwd=dbauth)
       
     self._cache_info_types()
@@ -123,26 +123,6 @@ class DBAdaptor(CreateMethodsMixin, ReadMethodsMixin, UpdateMethodsMixin, Delete
     print("TCRD DBAdaptor ERROR: ", *objs, file=sys.stderr)
 
   #
-  # Create Methods
-  #
-
-  #
-  # Read/Search Methods
-  #
-  
-  #
-  # Update Methods
-  #
-
-  #
-  # Delete Methods
-  #
-
-  
-  
-
-  
-  #
   # Private Methods
   #
   def _connect(self, host, port, db, user, passwd):
@@ -163,7 +143,7 @@ class DBAdaptor(CreateMethodsMixin, ReadMethodsMixin, UpdateMethodsMixin, Delete
         self._logger.error("Error connecting to MySQL: Database does not exist")
       else:
         self._logger.error(f"Error connecting to MySQL: {e}")
-    self._logger.info(f"Successful connection to database {db}: {self._conn}")
+    self._logger.debug(f"Successful connection to database {db}: {self._conn}")
 
   def _get_auth(self, pw_file):
     '''

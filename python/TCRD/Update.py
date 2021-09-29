@@ -3,7 +3,7 @@ Update methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-01-20 12:07:53 smathias>
+Time-stamp: <2021-04-12 12:40:41 smathias>
 '''
 from mysql.connector import Error
 from contextlib import closing
@@ -34,7 +34,7 @@ class UpdateMethodsMixin:
     
   def do_update(self, init):
     '''
-    Function  : Update a single table.col with value by row id
+    Function  : Set a single table.col to val by row id
     Arguments : A dictionary with keys table, id, col and val
     Returns   : Boolean indicating success or failure
     '''
@@ -44,7 +44,6 @@ class UpdateMethodsMixin:
       self.warning(f"Invalid parameters sent to do_update(): {init}")
       return False
     sql = "UPDATE {} SET {} = %s WHERE id = %s".format(init['table'], init['col'])
-    #sql += ' = %s WHERE id = %s'
     self._logger.debug(f"SQLpat: {sql}")
     self._logger.debug(f"SQLparams: {params}")
     with closing(self._conn.cursor()) as curs:
@@ -58,5 +57,43 @@ class UpdateMethodsMixin:
         self._conn.rollback()
         return False
     return True
+
+  def upd_tdls_null(self):
+    '''
+    Function  : Set all target.tdl values to NULL
+    Arguments : N/A
+    Returns   : Integer count of rows updated
+    '''
+    sql = "UPDATE target SET tdl = NULL"
+    self._logger.debug(f"SQL: {sql}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql)
+        row_ct = curs.rowcount
+        self._conn.commit()
+      except Error as e:
+        self._logger.error(f"MySQL Error in set_tdls_null(): {e}")
+        self._conn.rollback()
+        return False
+    return row_ct
+
+  def upd_pmstdlis_zero(self):
+    '''
+    Function  : Set all target.tdl values to NULL
+    Arguments : N/A
+    Returns   : Integer count of rows updated
+    '''
+    sql = "UPDATE tdl_info SET number_value = 0 WHERE itype = 'JensenLab PubMed Score'"
+    self._logger.debug(f"SQL: {sql}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql)
+        row_ct = curs.rowcount
+        self._conn.commit()
+      except Error as e:
+        self._logger.error(f"MySQL Error in set_tdls_null(): {e}")
+        self._conn.rollback()
+        return False
+    return row_ct
 
   

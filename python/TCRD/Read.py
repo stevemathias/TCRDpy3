@@ -3,7 +3,7 @@ Read/Search (ie. SELECT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-01-11 11:46:06 smathias>
+Time-stamp: <2021-06-04 12:43:08 smathias>
 '''
 from contextlib import closing
 from collections import defaultdict
@@ -37,6 +37,74 @@ class ReadMethodsMixin:
     return ids
 
 
+  def get_proteins(self):
+    '''
+    Function  : Get all TCRD protein rows.
+    Arguments : N/A
+    Returns   : A list of dictionaries
+    Scope     : Public
+    '''
+    sql = "SELECT * FROM protein"
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute(sql)
+      proteins = [row for row in curs.fetchall()]
+    return proteins
+
+  def get_targetprotein(self, id):
+    '''
+    Function  : Get data from target and protein tables by target.id.
+    Arguments : N/A
+    Returns   : Dictionary containing target and protein data
+    Scope     : Public
+    '''
+    sql = "SELECT t.id, t.tdl, t.idg, t.fam, t.famext, p.name, p.description, p.uniprot, p.sym, p.geneid, p.stringid, p.family, p.dtoid, p.dtoclass FROM target t, t2tc, protein p WHERE t.id = %s AND t.id = t2tc.target_id AND t2tc.protein_id = p.id"
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute(sql, (id,))
+      tp = curs.fetchone()
+    return tp
+
+  def get_domain_xrefs(self, pid):
+    '''
+    Function  : 
+    Arguments : N/A
+    Returns   : A list of dictionaries
+    Scope     : Public
+    '''
+    xrefs = {}
+    sql = "SELECT value, xtra FROM xref WHERE protein_id = %s AND xtype = %s"
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      for xt in ['Pfam', 'InterPro', 'PROSITE']:
+        l = []
+        curs.execute(sql, (pid, xt))
+        xrefs[xt] = [d for d in curs.fetchall()]
+    return xrefs
+
+  def get_jlds(self, pid):
+    '''
+    Function  : 
+    Arguments : N/A
+    Returns   : A list of dictionaries
+    Scope     : Public
+    '''
+    sql = "SELECT name, did, dtype, zscore, conf FROM disease WHERE protein_id = %s AND dtype like 'JensenLab%' ORDER BY zscore DESC"
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute(sql, (pid, ))
+      jlds = [d for d in curs.fetchall()]
+    return jlds
+
+  def get_uniprots_tdls(self):
+    '''
+    Function  : Get all protein.uniprot and target.tdl values for export to UniProt Mapping file.
+    Arguments : N/A
+    Returns   : A list of dictionaries
+    Scope     : Public
+    '''
+    sql = "SELECT p.uniprot, t.tdl FROM target t, protein p, t2tc WHERE t.id = t2tc.target_id AND t2tc.protein_id = p.id"
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute(sql)
+      proteins = [row for row in curs.fetchall()]
+    return proteins
+  
   def find_target_ids(self, q, incl_alias=False):
     '''
     Function  : Find id(s) of target(s) that satisfy the input query criteria
@@ -329,7 +397,7 @@ class ReadMethodsMixin:
     Function  : Get protein data by id
     Arguments : An integer and two optional booleans
     Returns   : Dictionary containing target data
-    Example   : target = dba->get_target(42, annot=True) 
+    Example   : target = dba->get_protein(42, annot=True) 
     Scope     : Public
     Comments : By default, this returns only data in the protein table.
                To get all associated annotations (except Harmonizome
@@ -514,7 +582,7 @@ class ReadMethodsMixin:
             p['tinx_importances'].append({'disease': txi['name'], 'score': txi['score']})
         if not p['tinx_importances']: del(p['tinx_importances'])
         # gene_attribute counts
-        if get_ga_counts:
+        if gacounts:
           p['gene_attribute_counts'] = {}
           curs.execute("SELECT gat.name AS type, COUNT(*) AS attr_count FROM gene_attribute_type gat, gene_attribute ga WHERE gat.id = ga.gat_id AND ga.protein_id = %s GROUP BY type", (id,))
           for gact in curs:
@@ -530,7 +598,7 @@ class ReadMethodsMixin:
 
   def get_target4tdlcalc(self, id):
     '''
-    Function  : Get a target with data required for TDL calculation
+    Function  : Get a target and associated data required for TDL calculation
     Arguments : An integer
     Returns   : Dictionary containing target data.
     Scope     : Public
@@ -607,6 +675,19 @@ class ReadMethodsMixin:
     t['components']['protein'].append(p)
     return t
 
+  def get_tigas(self):
+    '''
+    Function  : Get distinct tiga.protein_id and tiga.ensg values (for extlinks).
+    Arguments : N/A
+    Returns   : A list of dictionaries
+    Scope     : Public
+    '''
+    tigas = []
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute("SELECT DISTINCT protein_id, ensg FROM tiga")
+      tigas = [row for row in curs.fetchall()]
+    return tigas
+
   def get_tinx_pmids(self):
     pmids = []
     with closing(self._conn.cursor()) as curs:
@@ -620,3 +701,14 @@ class ReadMethodsMixin:
       curs.execute("SELECT id FROM pubmed")
       pmids = [row[0] for row in curs.fetchall()]
     return pmids
+
+  def get_missing_tinx_pmids(self):
+    '''Returns strings, not ints, so ids can be sent to EUtils'''
+    pmids = []
+    with closing(self._conn.cursor()) as curs:
+      sql = "SELECT DISTINCT pmid FROM tinx_articlerank WHERE pmid NOT IN (SELECT id FROM pubmed)"
+      curs.execute(sql)
+      pmids = [str(row[0]) for row in curs.fetchall()]
+    return pmids
+
+  
