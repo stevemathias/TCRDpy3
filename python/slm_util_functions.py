@@ -1,35 +1,16 @@
 import os,sys,platform,time,re,gzip
 from functools import reduce
+from itertools import islice
 
 def get_pw(f):
-  f = open(f, 'r')
-  pw = f.readline().strip()
+  with open(f, 'r') as ifh:
+    pw = ifh.readline().strip()
   return pw
 
-def conn_tcrd(init):
-  if 'dbhost' in init:
-    dbhost = init['dbhost']
-  else:
-    dbhost = DBHOST
-  if 'dbport' in init:
-    dbport = init['dbport']
-  else:
-    dbport = 3306
-  if 'dbname' in init:
-    dbname = init['dbname']
-  else:
-    dbname = DBNAME
-  if 'dbuser' in init:
-    dbuser = init['dbuser']
-  else:
-    dbuser = 'smathias'
-  if 'pwfile' in init:
-    dbauth = get_pw(init['pwfile'])
-  else:
-    dbauth = get_pw('/home/smathias/.dbirc')
-  conn = mysql.connect(host=dbhost, port=dbport, db=dbname, user=dbuser, passwd=dbauth,
-                       charset='utf8', init_command='SET NAMES UTF8')
-  return conn
+def chunker(lst, n):
+  """Yield successive n-sized chunks from lst."""
+  for i in range(0, len(lst), n):
+    yield lst[i:i + n]
 
 def secs2str(t):
   return "%d:%02d:%02d.%03d" % reduce(lambda ll,b : divmod(ll[0],b) + ll[1:], [(t*1000,),1000,60,60])
@@ -107,3 +88,24 @@ def tsv2csv(tsv):
     fields = map( lambda f: '"'+f.replace('"','')+'"', re.split(r'\t', line) )
     csv.append(','.join(fields))
   return csv
+
+def file_chunker(fn, n, delim = ','):
+  """Read a delimited text file and yield lists of split lines in chunks of n."""
+  with open(fn) as ifh:
+    while True:
+      next_lines = list(islice(ifh, n))
+      if not next_lines:
+        break
+      data = [split_line(line, delim) for line in next_lines]
+      yield data
+
+def file2list(fn, delim = ','):
+  """Read a delimited text file into a list of lists."""
+  with open(fn) as ifh:
+    header = split_line(ifh.readline(), delim)
+    data = [split_line(line, delim) for line in ifh.readlines()]
+    return data
+
+def split_line(line, delim):
+  return line.strip().split(delim)
+

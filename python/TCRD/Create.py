@@ -3,7 +3,7 @@ Create (ie. INSERT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-01-19 13:36:12 smathias>
+Time-stamp: <2021-09-28 12:10:00 smathias>
 '''
 from mysql.connector import Error
 from contextlib import closing
@@ -689,7 +689,189 @@ class CreateMethodsMixin:
         return False
     return True
 
-  def ins_tinx_novelty(self, init, commit=True):
+  def ins_extlink(self, init):
+    if 'protein_id' not in init or 'source' not in init or 'url' not in init:
+      self.warning("Invalid parameters sent to ins_extlink(): ", init)
+      return False
+    sql = "INSERT INTO extlink (protein_id, source, url) VALUES (%s, %s, %s)"
+    params = (init['protein_id'], init['source'], init['url'])
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, params)
+        self._conn.commit()
+      except Error as e:
+        self._logger.error(f"MySQL Error in ins_extlink(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    return True
+  
+  def ins_mondo(self, init):
+    if 'mondoid' in init and 'name' in init:
+      cols = ['mondoid', 'name']
+      vals = ['%s','%s']
+      params = [init['mondoid'], init['name']]
+    else:
+      self.warning("Invalid parameters sent to ins_mondo(): ", init)
+      return False
+    for optcol in ['def', 'comment']:
+      if optcol in init:
+        cols.append(optcol)
+        vals.append('%s')
+        params.append(init[optcol])
+    sql = "INSERT INTO mondo (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, params)
+      except Error as e:
+        self._logger.error(f"MySQL Error in ins_mondo(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    if 'parents' in init:
+      for parentid in init['parents']:
+        sql = "INSERT INTO mondo_parent (mondoid, parentid) VALUES (%s, %s)"
+        params = [init['mondoid'], parentid]
+        self._logger.debug(f"SQLpat: {sql}")
+        self._logger.debug(f"SQLparams: {params}")
+        with closing(self._conn.cursor()) as curs:
+          try:
+            curs.execute(sql, params)
+          except Error as e:
+            self._logger.error(f"MySQL Error in ins_mondo(): {e}")
+            self._logger.error(f"SQLpat: {sql}")
+            self._logger.error(f"SQLparams: {params}")
+            self._conn.rollback()
+            return False
+    if 'xrefs' in init:
+      for xref in init['xrefs']:
+        if 'source' in xref:
+          sql = "INSERT INTO mondo_xref (mondoid, db, value, equiv_to, source_info) VALUES (%s, %s, %s, %s, %s)"
+          params = [init['mondoid'], xref['db'], xref['value'], xref['equiv_to'], xref['source']]
+        else:
+          sql = "INSERT INTO mondo_xref (mondoid, db, value, equiv_to) VALUES (%s, %s, %s, %s)"
+          params = [init['mondoid'], xref['db'], xref['value'], xref['equiv_to']]
+        self._logger.debug(f"SQLpat: {sql}")
+        self._logger.debug(f"SQLparams: {params}")
+        with closing(self._conn.cursor()) as curs:
+          try:
+            curs.execute(sql, params)
+          except Error as e:
+            self._logger.error(f"MySQL Error in ins_mondo(): {e}")
+            self._logger.error(f"SQLpat: {sql}")
+            self._logger.error(f"SQLparams: {params}")
+            self._conn.rollback()
+            return False
+    try:
+      self._conn.commit()
+    except Error as e:
+      self._logger.error(f"MySQL commit error in ins_mondo(): {e}")
+      self._conn.rollback()
+      return False
+    return True
+  
+  def ins_uberon(self, init):
+    if 'uid' in init and 'name' in init:
+      cols = ['uid', 'name']
+      vals = ['%s','%s']
+      params = [init['uid'], init['name']]
+    else:
+      self.warning("Invalid parameters sent to ins_uberon(): ", init)
+      return False
+    for optcol in ['def', 'comment']:
+      if optcol in init:
+        cols.append(optcol)
+        vals.append('%s')
+        params.append(init[optcol])
+    sql = "INSERT INTO uberon (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, params)
+      except Error as e:
+        self._logger.error(f"MySQL Error in ins_uberon(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    if 'parents' in init:
+      for parent_id in init['parents']:
+        sql = "INSERT INTO uberon_parent (uid, parent_id) VALUES (%s, %s)"
+        params = [init['uid'], parent_id]
+        self._logger.debug(f"SQLpat: {sql}")
+        self._logger.debug(f"SQLparams: {params}")
+        with closing(self._conn.cursor()) as curs:
+          try:
+            curs.execute(sql, params)
+          except Error as e:
+            self._logger.error(f"MySQL Error in ins_uberon(): {e}")
+            self._logger.error(f"SQLpat: {sql}")
+            self._logger.error(f"SQLparams: {params}")
+            self._conn.rollback()
+            return False
+    if 'xrefs' in init:
+      for xref in init['xrefs']:
+        if 'source' in xref:
+          sql = "INSERT INTO uberon_xref (uid, db, value, source) VALUES (%s, %s, %s, %s)"
+          params = [init['uid'], xref['db'], xref['value'], xref['source']]
+        else:
+          sql = "INSERT INTO uberon_xref (uid, db, value) VALUES (%s, %s, %s)"
+          params = [init['uid'], xref['db'], xref['value']]
+        self._logger.debug(f"SQLpat: {sql}")
+        self._logger.debug(f"SQLparams: {params}")
+        with closing(self._conn.cursor()) as curs:
+          try:
+            curs.execute(sql, params)
+          except Error as e:
+            self._logger.error(f"MySQL Error in ins_uberon(): {e}")
+            self._logger.error(f"SQLpat: {sql}")
+            self._logger.error(f"SQLparams: {params}")
+            self._conn.rollback()
+            return False
+    try:
+      self._conn.commit()
+    except Error as e:
+      self._logger.error(f"MySQL commit error in ins_uberon(): {e}")
+      self._conn.rollback()
+      return False
+    return True
+
+  def ins_cmpd_activity(self, init, commit=True):
+    if 'target_id' in init and 'catype' in init and 'cmpd_id_in_src' in init:
+      params = [init['target_id'], init['catype'], init['cmpd_id_in_src']]
+    else:
+      self.warning(f"Invalid parameters sent to ins_cmpd_activity(): {init}")
+      return False
+    cols = ['target_id', 'catype', 'cmpd_id_in_src']
+    vals = ['%s','%s','%s']
+    for optcol in ['cmpd_name_in_src', 'smiles', 'act_value', 'act_type', 'reference', 'pubmed_ids', 'cmpd_pubchem_cid']:
+      if optcol in init:
+        cols.append(optcol)
+        vals.append('%s')
+        params.append(init[optcol])
+    sql = "INSERT INTO cmpd_activity (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, tuple(params))
+        if commit: self._conn.commit()
+      except Error as  e:
+        self._logger.error(f"MySQL Error in ins_cmpd_activity(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    return True
+  
+  def ins_tinx_novelty(self, init):
     if 'protein_id' in init and 'score' in init:
       params = [init['protein_id'], init['score']]
     else:
@@ -701,22 +883,16 @@ class CreateMethodsMixin:
     with closing(self._conn.cursor()) as curs:
       try:
         curs.execute(sql, tuple(params))
+        self._conn.commit()
       except Error as e:
         self._logger.error(f"MySQL Error in ins_tinx_novelty(): {e}")
         self._logger.error(f"SQLpat: {sql}")
         self._logger.error(f"SQLparams: {params}")
         self._conn.rollback()
         return False
-    if commit:
-      try:
-        self._conn.commit()
-      except Error as e:
-        self._logger.error(f"MySQL commit error in ins_tinx_novelty(): {e}")
-        self._conn.rollback()
-        return False
     return True
 
-  def ins_tinx_disease(self, init, commit=True):
+  def ins_tinx_disease(self, init):
     if 'doid' in init and 'name' in init:
       params = [init['doid'], init['name']]
     else:
@@ -735,22 +911,16 @@ class CreateMethodsMixin:
     with closing(self._conn.cursor()) as curs:
       try:
         curs.execute(sql, tuple(params))
+        self._conn.commit()
       except Error as e:
         self._logger.error(f"MySQL Error in ins_tinx_disease(): {e}")
         self._logger.error(f"SQLpat: {sql}")
         self._logger.error(f"SQLparams: {params}")
         self._conn.rollback()
         return False
-    if commit:
-      try:
-        self._conn.commit()
-      except Error as e:
-        self._logger.error(f"MySQL commit error in ins_tinx_disease(): {e}")
-        self._conn.rollback()
-        return False
     return True
     
-  def ins_tinx_importance(self, init, commit=True):
+  def ins_tinx_importance(self, init):
     if 'protein_id' in init and 'disease_id' in init and 'score' in init:
       params = [init['protein_id'], init['disease_id'], init['score']]
     else:
@@ -762,23 +932,17 @@ class CreateMethodsMixin:
     with closing(self._conn.cursor()) as curs:
       try:
         curs.execute(sql, tuple(params))
-        iid = curs.lastrowid
+        tiid = curs.lastrowid
+        self._conn.commit()
       except Error as e:
         self._logger.error(f"MySQL Error in ins_tinx_importance(): {e}")
         self._logger.error(f"SQLpat: {sql}")
         self._logger.error(f"SQLparams: {params}")
         self._conn.rollback()
         return False
-    if commit:
-      try:
-        self._conn.commit()
-      except Error as e:
-        self._logger.error(f"MySQL commit error in ins_tinx_importance(): {e}")
-        self._conn.rollback()
-        return False
-    return iid
+    return tiid
     
-  def ins_tinx_articlerank(self, init, commit=True):
+  def ins_tinx_articlerank(self, init):
     if 'importance_id' in init and 'pmid' in init and 'rank' in init:
       params = [init['importance_id'], init['pmid'], init['rank']]
     else:
@@ -790,19 +954,64 @@ class CreateMethodsMixin:
     with closing(self._conn.cursor()) as curs:
       try:
         curs.execute(sql, tuple(params))
-        iid = curs.lastrowid
+        self._conn.commit()
       except Error as e:
         self._logger.error(f"MySQL Error in ins_tinx_articlerank(): {e}")
         self._logger.error(f"SQLpat: {sql}")
         self._logger.error(f"SQLparams: {params}")
         self._conn.rollback()
         return False
-    if commit:
+    return True
+  
+  def ins_tiga(self, init):
+    if 'protein_id' in init and 'ensg' in init and 'efoid' in init and 'trait' in init:
+      params = [init['protein_id'], init['ensg'], init['efoid'], init['trait']]
+    else:
+      self.warning(f"Invalid parameters sent to ins_tiga(): {init}")
+      return False
+    cols = ['protein_id', 'ensg', 'efoid', 'trait']
+    vals = ['%s','%s','%s','%s']
+    for optcol in ['n_study', 'n_snp', 'n_snpw', 'geneNtrait', 'geneNstudy', 'traitNgene',
+                   'traitNstudy', 'pvalue_mlog_median', 'pvalue_mlog_max', 'or_median',
+                   'n_beta', 'study_N_mean', 'rcras', 'meanRank', 'meanRankScore']:
+      if optcol in init:
+        cols.append(optcol)
+        vals.append('%s')
+        params.append(init[optcol])
+    sql = "INSERT INTO tiga (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
       try:
+        curs.execute(sql, tuple(params))
         self._conn.commit()
       except Error as e:
-        self._logger.error(f"MySQL commit error in ins_tinx_articlerank(): {e}")
+        self._logger.error(f"MySQL Error in ins_tiga(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
         self._conn.rollback()
         return False
     return True
-  
+
+  def ins_tiga_provenance(self, init):
+    if 'ensg' in init and 'efoid' in init and 'study_acc' in init and 'pubmedid' in init:
+      params = [init['ensg'], init['efoid'], init['study_acc'], init['pubmedid']]
+    else:
+      self.warning(f"Invalid parameters sent to ins_tiga_provenance(): {init}")
+      return False
+    cols = ['ensg', 'efoid', 'study_acc', 'pubmedid']
+    vals = ['%s','%s','%s','%s']
+    sql = "INSERT INTO tiga_provenance (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, tuple(params))
+        self._conn.commit()
+      except Error as e:
+        self._logger.error(f"MySQL Error in ins_tiga_provenance(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    return True

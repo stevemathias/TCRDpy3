@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-22 10:08:46 smathias>
+# Time-stamp: <2021-03-15 12:01:58 smathias>
 """Load DRGC resource data into TCRD via RSS API.
 
 Usage:
@@ -39,7 +39,6 @@ import slm_util_functions as slmf
 PROGRAM = os.path.basename(sys.argv[0])
 TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
-LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 # API Docs: https://rss.ccs.miami.edu/rss-apis/
 RSS_API_BASE_URL = 'https://rss.ccs.miami.edu/rss-api/'
@@ -102,7 +101,6 @@ def load(args, dba, logger, logfile):
 def get_target_data():
   url = f"{RSS_API_BASE_URL}target"
   jsondata = None
-  attempts = 0
   resp = requests.get(url, verify=False)
   if resp.status_code == 200:
     return resp.json()
@@ -112,7 +110,6 @@ def get_target_data():
 def get_resource_data(idval):
   url = f"{RSS_API_BASE_URL}target/id?id={idval}"
   jsondata = None
-  attempts = 0
   resp = requests.get(url, verify=False)
   if resp.status_code == 200:
     return resp.json()
@@ -135,7 +132,7 @@ if __name__ == '__main__':
   logger.setLevel(loglevel)
   if not args['--debug']:
     logger.propagate = False # turns off console logging
-  fh = logging.FileHandler(LOGFILE)
+  fh = logging.FileHandler(logfile)
   fmtr = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
   fh.setFormatter(fmtr)
   logger.addHandler(fh)

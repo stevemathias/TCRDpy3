@@ -4,8 +4,8 @@ A parser for OBO format files.
 
 This parser is a quick and dirty implementation developed and tested to
 parse a few OBO files. For example, it works on the evidenceontology
-eco.obo and Disease Ontology doid.obo files. It may - or more likely, may
-not - work on other OBO files.
+eco.obo and Disease Ontology doid.obo files. It may - or may not - work 
+on other OBO files.
 
 Usage example::
 
@@ -19,9 +19,9 @@ Usage example::
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2015-2020, Steve Mathias"
+__copyright__ = "Copyright 2015-2021, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "0.8.0"
+__version__   = "0.9.0"
 __all__ = ["ParseError", "Stanza", "Parser", "Value"]
 
 from io import StringIO
@@ -29,9 +29,9 @@ import re
 import tokenize
 
 class ParseError(Exception):
-  """Exception thrown when a parsing error occurred"""
+  """Exception thrown when a parsing error occurs"""
   def __init__(self, msg, lineno = 1):
-    Exception.__init__(self, "%s near line %d" % (msg, lineno))
+    Exception.__init__(self, f"{msg} near line {lineno}")
     self.lineno = lineno
 
 class Value(object):
@@ -58,8 +58,7 @@ class Value(object):
 
   def __repr__(self):
     """Returns a Python representation of this object"""
-    return "%s(%r, %r)" % (self.__class__.__name__, self.value, self.modifiers)
-
+    return "{}({}, {})".format(self.__class__.__name__, self.value, self.modifiers)
 
 class Stanza(object):
   """Class representing an OBO stanza.
@@ -99,7 +98,7 @@ class Stanza(object):
 
   def __repr__(self):
     """Returns a Python representation of this object"""
-    return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.tags)
+    return "{}({}, {})".format(self.__class__.__name__, self.name, self.tags)
 
 
 class Parser(object):
@@ -245,7 +244,6 @@ class Parser(object):
 
   def __del(self):
     self.file_handle.close()
-
 
 def test():
   for f in ['/home/app/TCRD/data/eco.obo', '/home/app/TCRD/data/DiseaseOntology/doid.obo']:

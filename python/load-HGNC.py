@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-20 14:13:50 smathias>
+# Time-stamp: <2021-03-15 14:30:59 smathias>
 """Load HGNC annotations for TCRD targets from downloaded TSV file.
 
 Usage:

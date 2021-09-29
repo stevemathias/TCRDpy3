@@ -1,13 +1,17 @@
 '''
-Generate Target Importance and Novelty Explorer (TIN-X) files.
+Python3 module for generating Target Importance and Novelty Explorer
+(TIN-X) TSV files from Jensen Lab textminig TSV files.
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2020-12-11 10:28:58 smathias>
+Time-stamp: <2021-03-03 14:14:34 smathias>
+
 '''
 
 from functools import cmp_to_key
 import logging
+from collections import defaultdict
+import slm_util_functions as slmf
 
 def cmp_pmids_scores(a, b):
   '''
@@ -62,19 +66,17 @@ class TINX():
       fh.setFormatter(fmtr)
       self._logger.addHandler(fh)
 
-    # The results of parsing the JensenLab mentions files will be stored in the
-    # following dictionaries:
-    self._pid2pmids = {}  # 'TCRD.protein.id,UniProt' => set of all PMIDs that mention the protein
-                          # Including the UniProt accession in the key is just for convenience when
-                          # checking the output. It is not used for anything.
-    self._doid2pmids = {} # DOID => set of all PMIDs that mention the disease
-    self._pmid_disease_ct = {} # PMID => count of diseases mentioned in a given paper 
-    self._pmid_protein_ct = {} # PMID => count of proteins mentioned in a given paper
+    # The results of parsing the JensenLab mentions files will be stored in dictionaries 
+    # as follows:
+    self._pid2pmids = defaultdict(set)  # 'TCRD.protein.id' => all PMIDs that mention the protein
+    self._doid2pmids = defaultdict(set) # DOID => all PMIDs that mention the disease
+    self._pmid_disease_ct = defaultdict(int) # PMID => count of diseases mentioned in a paper 
+    self._pmid_protein_ct = defaultdict(int) # PMID => count of proteins mentioned in a paper
 
   def parse_protein_mentions(self):
     line_ct = slmf.wcl( self._protein_file )
-    self._logger.info("\nProcessing {} lines in protein file {}".format(line_ct, self._protein_file))
-    with open(self._protein_file, 'rU') as tsvf:
+    self._logger.info("Processing {} lines in protein file {}".format(line_ct, self._protein_file))
+    with open(self._protein_file, 'r') as tsvf:
       ct = 0
       skip_ct = 0
       notfnd = set()
@@ -90,35 +92,27 @@ class TINX():
         if not pids:
           # if we don't find a protein by stringid, which is the more reliable and
           # prefered way, try by Ensembl xref
-          pids = dba.find_protein_ids_by_xref({'xtype': 'Ensembl', 'value': ensp})
+          pids = self._dba.find_protein_ids_by_xref({'xtype': 'Ensembl', 'value': ensp})
           if not pids:
             notfnd.add(ensp)
             continue
         for pid in pids:
-          k = "{},{}".format(p['id'], p['uniprot'])
-          if k in self._pid2pmids:
-            self._pid2pmids[k] = self._pid2pmids[k].union(pmids)
-          else:
-            self._pid2pmids[k] = set(pmids)
+          self._pid2pmids[pid] = self._pid2pmids[pid].union(pmids)
           for pmid in pmids:
-            if pmid in self._pmid_protein_ct:
-              self._pmid_protein_ct[pmid] += 1.0
-            else:
-              self._pmid_protein_ct[pmid] = 1.0
-    for ensp in notfnd:
-      self._logger.warn(f"No protein found for {ensp}")
-    self._logger.info(f"\n{ct} lines processed")
+            self._pmid_protein_ct[pmid] += 1.0
+    self._logger.info(f"{ct} lines processed")
     self._logger.info(f"  Skipped {skip_ct} non-ENSP lines")
     self._logger.info("  Saved {} protein to PMIDs mappings".format(len(self._pid2pmids)))
     self._logger.info("  Saved {} PMID to protein count mappings".format(len(self._pmid_protein_ct)))
     if notfnd:
-      self._logger.info("  No target found for {} ENSPs.".format(len(notfnd)))
+      self._logger.info("  No protein found for {} ENSPs.".format(len(notfnd)))
+      self._logger.debug("Here they are: {}".format(', '.join(notfnd)))
     return (len(self._pid2pmids), len(self._pmid_protein_ct))
 
   def parse_disease_mentions(self):
     line_ct = slmf.wcl( self._disease_file )
-    self._logger.info("\nProcessing {} lines in disease file {}".format(line_ct, self._disease_file))
-    with open(self._disease_file, 'rU') as tsvf:
+    self._logger.info("Processing {} lines in disease file {}".format(line_ct, self._disease_file))
+    with open(self._disease_file, 'r') as tsvf:
       ct = 0
       skip_ct = 0
       notfnd = set()
@@ -143,14 +137,12 @@ class TINX():
             self._pmid_disease_ct[pmid] += 1.0
           else:
             self._pmid_disease_ct[pmid] = 1.0
-    for doid in notfnd:
-      self._logger.warn(f"No DO entry found for {doid}")
-    self._logger.info(f"\n{ct} lines processed.")
+    self._logger.info(f"{ct} lines processed.")
     self._logger.info(f"  Skipped {skip_ct} non-DOID lines")
     self._logger.info("  Saved {} DOID to PMIDs mappings".format(len(self._doid2pmids)))
     self._logger.info("  Saved {} PMID to disease count mappings".format(len(self._pmid_disease_ct)))
     if notfnd:
-      self._logger.info("WARNNING: No entry found in DO map for {} DOIDs.".format(len(notfnd)))
+      self._logger.warn("No entry found in DO map for {} DOIDs: {}".format(', '.join(notfnd)))
     return (len(self._doid2pmids), len(self._pmid_disease_ct))
   
   def compute_protein_novelty(self):
@@ -160,19 +152,20 @@ class TINX():
     mentioned in it. The novelty score of a given protein is one divided
     by the sum of the FT scores for all the papers mentioning that protein.
     '''
-    self._logger.info("\nComputing protein novely scores")
+    self._logger.info("Computing protein novely scores")
     ct = 0
-    ofn = self._outdir + 'ProteinNovelty.csv'
+    ofn = self._outdir + 'ProteinNovelty.tsv'
     with open(ofn, 'w') as pnovf:
-      pnovf.write("Protein ID,UniProt,Novelty\n")
-      for pidup,pmids in self._pid2pmids.items():
+      pnovf.write("Protein ID\tNovelty\n")
+      ct += 1
+      for pid,pmids in self._pid2pmids.items():
         ct += 1
         ft_score_sum = 0.0
         for pmid in pmids:
           ft_score_sum += 1.0 / self._pmid_protein_ct[pmid]
         novelty = 1.0 / ft_score_sum
-        pnovf.write( "%s,%.8f\n" % (pidup, novelty) )
-    self._logger.info(f"  Wrote {ct} protein novelty scores to file {ofn}")
+        pnovf.write(f"{pid}\t{novelty:.8f}\n")
+    self._logger.info(f"  Wrote {ct} protein novelty rows to file {ofn}")
     return (ct, ofn)
 
   def compute_disease_novelty(self):
@@ -182,19 +175,27 @@ class TINX():
     mentioned in it. The novelty score of a given disease is one divided
     by the sum of the FD scores for all the papers mentioning that protein.
     '''
-    self._logger.info("\nComputing disease novely scores")
+    self._logger.info("Computing disease novely scores")
     ct = 0
-    ofn = self._outdir + 'DiseaseNovelty.csv'
+    ofn = self._outdir + 'DiseaseNovelty.tsv'
     with open(ofn, 'w') as dnovf:
-      dnovf.write("DOID,Novelty\n")
+      dnovf.write("DOID\tName\tDefinition\tNovelty\n")
+      ct += 1
       for doid,pmids in self._doid2pmids.items():
         ct += 1
+        dname = None
+        ddef = None
+        if 'name' in self._do[doid]:
+          dname = self._do[doid]['name'][0].value
+        if 'def' in self._do[doid]:
+          # a small number of defs have imbedded newlines...
+          ddef = self._do[doid]['def'][0].value.replace('\n', '')
         fd_score_sum = 0.0
         for pmid in pmids:
-          ft_score_sum += 1.0 / self._pmid_disease_ct[pmid]
-        novelty = 1.0 / ft_score_sum
-        dnovf.write( "%s,%.8f\n" % (doid, novelty) )
-    self._logger.info(f"  Wrote {ct} disease novelty scores to file {ofn}")
+          fd_score_sum += 1.0 / self._pmid_disease_ct[pmid]
+        novelty = 1.0 / fd_score_sum
+        dnovf.write(f'{doid}\t{dname}\t{ddef}\t{novelty:.8f}\n')
+    self._logger.info(f"  Wrote {ct} disease novelty rows to file {ofn}")
     return (ct, ofn)
 
   def compute_importances(self):
@@ -206,12 +207,13 @@ class TINX():
     the sum of the FDT scores for all papers mentioning that disease and
     protein.
     '''
-    self._logger.info("\nComputing importance scores")
+    self._logger.info("Computing importance scores")
     ct = 0
-    ofn = self._outdir + 'Importance.csv'
+    ofn = self._outdir + 'Importance.tsv'
     with open(ofn, 'w') as impf:
-      impf.write("DOID,Protein ID,UniProt,Score\n")
-      for pidup,ppmids in self._pid2pmids.items():
+      impf.write("DOID\tProtein ID\tScore\n")
+      ct += 1
+      for pid,ppmids in self._pid2pmids.items():
         for doid,dpmids in self._doid2pmids.items():
           pd_pmids = ppmids.intersection(dpmids)
           fdt_score_sum = 0.0
@@ -219,8 +221,8 @@ class TINX():
             fdt_score_sum += 1.0 / ( self._pmid_protein_ct[pmid] * self._pmid_disease_ct[pmid] )
           if fdt_score_sum > 0:
             ct += 1
-            impf.write( "%s,%s,%.8f\n" % (doid, pidup, fdt_score_sum) )
-    print(f"  Wrote {ct} importance scores to file {ofn}")
+            impf.write(f"{doid}\t{pid}\t{fdt_score_sum:.8f}\n")
+    self._logger.info(f"  Wrote {ct} importance scores to file {ofn}")
     return (ct, ofn)
 
   def compute_pubmed_rankings(self):
@@ -229,15 +231,17 @@ class TINX():
     calculated by multiplying the number of targets mentioned and the
     number of diseases mentioned in that paper. Lower scores have a lower
     rank (higher priority). If the scores do not discriminate, PMIDs are
-    reverse sorted by value with the assumption that larger PMIDs are
+    reverse sorted by value under the assumption that larger PMIDs are
     newer and of higher priority.
     '''
-    self._logger.info("\nComputing PubMed rankings")
+    self._logger.info("Computing PubMed rankings")
+    tinx_pmids = set()
     ct = 0
-    ofn = self._outdir + 'PMIDRanking.csv'
+    ofn = self._outdir + 'PMIDRanking.tsv'
     with open(ofn, 'w') as pmrf:
-      pmrf.write("DOID,Protein ID,UniProt,PubMed ID,Rank\n")
-      for pidup,ppmids in self._pid2pmids.items():
+      pmrf.write("DOID\tProtein ID\tPubMed ID\tRank\n")
+      ct += 1
+      for pid,ppmids in self._pid2pmids.items():
         for doid,dpmids in self._doid2pmids.items():
           pd_pmids = ppmids.intersection(dpmids)
           scores = [] # scores are tuples of (PMID, protein_mentions*disease_mentions)
@@ -247,9 +251,10 @@ class TINX():
             scores.sort(key = cmp_to_key(cmp_pmids_scores))
             for i,t in enumerate(scores):
               ct += 1
-              pmrf.write( "%s,%s,%d,%d\n" % (doid, pidup, t[0], i) )
+              pmrf.write(f"{doid}\t{pid}\t{t[0]}\t{i}\n")
+              tinx_pmids.add(t[0])
     self._logger.info(f"  Wrote {ct} PubMed rankings to file {ofn}")
-    return (ct, ofn)
+    return (ct, tinx_pmids, ofn)
     
 
 
