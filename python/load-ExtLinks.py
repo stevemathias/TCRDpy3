@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-04-12 11:51:38 smathias>
+# Time-stamp: <2021-10-29 16:07:30 smathias>
 """Load links to external databases into TCRD.
 
 Usage:
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
   start_time = time.time()
-  do_glygen(dba, logger, logfile)
+  #do_glygen(dba, logger, logfile)
   do_tiga(dba, logger, logfile)
   
   # Dataset
@@ -168,5 +168,6 @@ if __name__ == '__main__':
   # Provenance
   rv = dba.ins_provenance({'dataset_id': dataset_id, 'table_name': 'extlink'})
   assert rv, f"Error inserting provenance. See logfile {logfile} for details."
+  
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))

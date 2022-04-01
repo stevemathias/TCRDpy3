@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Time-stamp: <2021-05-06 13:50:10 smathias>
+# Time-stamp: <2021-10-29 14:02:57 smathias>
 """Calculate and load target TDL assignments, and also export an new UniProt mapping file.
 
 Usage:
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     exit(1)
   rv = dba.del_dataset('TDLs')
   if rv:
-    print(f"\nDeleted previous 'TDLs' dataset")
+    print(f"Deleted previous 'TDLs' dataset")
   else:
     print(f"Error deleting 'TDLs' dataset. See logfile {logfile} for details.")
     exit(1)
@@ -195,7 +195,8 @@ if __name__ == '__main__':
   mmver = '.'.join( dbi['data_ver'].split('.')[:2] )
   outfn = OUTFILE_PAT.format(mmver)
   export_uniprot_mapping(dba, outfn)
-  #shutil.copy(outfn, '/usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv')
+  shutil.copy(outfn, '/usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv')
+  print(f"Copied {outfn} to /usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv")
   
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))

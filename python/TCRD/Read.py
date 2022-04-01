@@ -3,7 +3,7 @@ Read/Search (ie. SELECT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-06-04 12:43:08 smathias>
+Time-stamp: <2021-12-22 12:27:18 smathias>
 '''
 from contextlib import closing
 from collections import defaultdict
@@ -711,4 +711,86 @@ class ReadMethodsMixin:
       pmids = [str(row[0]) for row in curs.fetchall()]
     return pmids
 
+  def get_diseases(self, dtype=None, with_did=False):
+    diseases = []
+    sql = "SELECT * FROM disease"
+    if dtype:
+      if with_did:
+        sql += f" WHERE dtype = '{dtype}' AND did IS NOT NULL"
+      else:
+        sql += f" WHERE dtype = '{dtype}'"
+    elif with_did:
+      sql += " WHERE did IS NOT NULL"
+    with closing(self._conn.cursor(dictionary=True, buffered=True)) as curs:
+      curs.execute(sql)
+      diseases = [d for d in curs.fetchall()]
+    return diseases
   
+  def get_diseases_without_mondoid(self):
+    diseases = []
+    sql = "SELECT * FROM disease WHERE mondoid IS NULL"
+    with closing(self._conn.cursor(dictionary=True, buffered=True)) as curs:
+      curs.execute(sql)
+      diseases = [d for d in curs.fetchall()]
+    return diseases
+  
+  def find_uberon_id(self, q):
+    if 'oid' in q:
+      (db, val) = q['oid'].split(':')
+      sql = "SELECT uid FROM uberon_xref WHERE db = %s AND value = %s"
+      params = (db, val)
+    elif 'name' in q:
+      name = q['name'].lower()
+      sql = "SELECT uid FROM uberon WHERE LOWER(name) = %s"
+      params = (name,)
+    else:
+      self.warning("Invalid query parameters sent to find_uberon_id(): ", q)
+      return False
+    with closing(self._conn.cursor()) as curs:
+      curs.execute(sql, params)
+      row = curs.fetchone()
+    if row:
+      return row[0]
+    else:
+      return None
+
+  def find_mondoid(self, q):
+    if 'db' in q and 'value' in q:
+      if q['db'] == 'MIM':
+        db = 'OMIM'
+      else:
+        db = q['db']
+      sql = "SELECT mondoid FROM mondo_xref WHERE db = %s AND value = %s AND equiv_to"
+      params = (db, q['value'])
+    elif 'name' in q:
+      name = q['name'].lower()
+      sql = "SELECT mondoid FROM mondo WHERE LOWER(name) = %s"
+      params = (name,)
+    else:
+      self.warning("Invalid query parameters sent to find_mondo_id(): ", q)
+      return False
+    with closing(self._conn.cursor()) as curs:
+      curs.execute(sql, params)
+      row = curs.fetchone()
+    if row:
+      return row[0]
+    else:
+      return None
+
+  def get_cmpd_activities(self, catype=None):
+    cmpd_activities = []
+    sql = "SELECT * FROM cmpd_activity"
+    if catype:
+      sql += " WHERE catype = '%s'" % catype
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute(sql)
+      cmpd_activities = [row for row in curs.fetchall()]
+    return cmpd_activities
+
+  def get_drug_activities(self):
+    drug_activities = []
+    with closing(self._conn.cursor(dictionary=True)) as curs:
+      curs.execute("SELECT * FROM drug_activity")
+      drug_activities = [row for row in curs.fetchall()]
+    return drug_activities
+

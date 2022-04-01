@@ -3,7 +3,7 @@ Create (ie. INSERT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-09-28 12:10:00 smathias>
+Time-stamp: <2021-10-26 14:39:35 smathias>
 '''
 from mysql.connector import Error
 from contextlib import closing
@@ -843,6 +843,34 @@ class CreateMethodsMixin:
       return False
     return True
 
+  def ins_drug_activity(self, init, commit=True):
+    if 'target_id' in init and 'drug' in init and 'dcid' in init and 'has_moa' in init:
+      params = [init['target_id'], init['drug'],  init['dcid'], init['has_moa']]
+    else:
+      self.warning(f"Invalid parameters sent to ins_drug_activity(): {init}")
+      return False
+    cols = ['target_id', 'drug', 'dcid', 'has_moa']
+    vals = ['%s','%s','%s', '%s']
+    for optcol in ['act_value', 'act_type', 'action_type', 'source', 'reference', 'smiles', 'cmpd_chemblid', 'cmpd_pubchem_cid', 'nlm_drug_info']:
+      if optcol in init:
+        cols.append(optcol)
+        vals.append('%s')
+        params.append(init[optcol])
+    sql = "INSERT INTO drug_activity (%s) VALUES (%s)" % (','.join(cols), ','.join(vals))
+    self._logger.debug(f"SQLpat: {sql}")
+    self._logger.debug(f"SQLparams: {params}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql, tuple(params))
+        if commit: self._conn.commit()
+      except Error as  e:
+        self._logger.error(f"MySQL Error in ins_drug_activity(): {e}")
+        self._logger.error(f"SQLpat: {sql}")
+        self._logger.error(f"SQLparams: {params}")
+        self._conn.rollback()
+        return False
+    return True
+  
   def ins_cmpd_activity(self, init, commit=True):
     if 'target_id' in init and 'catype' in init and 'cmpd_id_in_src' in init:
       params = [init['target_id'], init['catype'], init['cmpd_id_in_src']]

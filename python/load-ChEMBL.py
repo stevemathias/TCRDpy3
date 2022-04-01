@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-05-06 13:33:16 smathias>
+# Time-stamp: <2021-10-27 12:39:19 smathias>
 """Load cmpd_activity data into TCRD from ChEMBL MySQL database.
 
 Usage:
@@ -26,7 +26,7 @@ __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
 __copyright__ = "Copyright 2015-2021, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "6.1.0"
+__version__   = "6.2.0"
 
 import os,sys,time
 from docopt import docopt
@@ -45,15 +45,12 @@ PROGRAM = os.path.basename(sys.argv[0])
 TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}{PROGRAM}.log"
-CHEMBL_DB = 'chembl_28'
+CHEMBL_DB = 'chembl_29'
 DOWNLOAD_DIR = '../data/ChEMBL/'
 BASE_URL = 'ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/'
 UNIPROT2CHEMBL_FILE = 'chembl_uniprot_mapping.txt'
-# compounds/activities from publications (ie. src_id = 1, src_description = 'Scientific Literature')
-#SQLq1 = "SELECT acts.molregno, md.pref_name, md.chembl_id, cs.canonical_smiles, acts.pchembl_value, acts.standard_type, cr.compound_name, d.journal, d.year, d.volume, d.issue, d.first_page, d.pubmed_id FROM activities acts, compound_records cr, assays a, target_dictionary t, compound_structures cs, molecule_dictionary md, docs d WHERE acts.record_id = cr.record_id AND cs.molregno = md.molregno AND cs.molregno = acts.molregno AND acts.assay_id = a.assay_id AND a.tid = t.tid AND t.chembl_id = %s AND acts.molregno = md.molregno AND a.assay_type = 'B' AND md.structure_type = 'MOL' AND acts.standard_flag = 1 AND acts.standard_relation = '=' AND t.target_type = 'SINGLE PROTEIN' AND acts.pchembl_value IS NOT NULL AND acts.doc_id = d.doc_id"
-# patent compounds/activities from patents (ie. src_id = 38, src_description = 'Patent Bioactivity Data')
-#SQLq2 = "SELECT acts.molregno, md.pref_name, md.chembl_id, cs.canonical_smiles, acts.pchembl_value, acts.standard_type, cr.compound_name FROM activities acts, compound_records cr, assays a, target_dictionary t, compound_structures cs, molecule_dictionary md WHERE acts.record_id = cr.record_id AND cs.molregno = md.molregno AND cs.molregno = acts.molregno AND acts.assay_id = a.assay_id AND a.tid = t.tid AND t.chembl_id = %s AND acts.molregno = md.molregno AND a.assay_type = 'B' AND md.structure_type = 'MOL' AND acts.standard_flag = 1 AND acts.standard_relation = '=' AND t.target_type = 'SINGLE PROTEIN' AND acts.pchembl_value IS NOT NULL AND cr.src_id = 38"
 
+# compounds/activities from publications:
 SQLq1 = '''
 SELECT acts.molregno, md.pref_name, md.chembl_id, cs.canonical_smiles, acts.pchembl_value,
        acts.standard_type, cr.compound_name, d.journal, d.year, d.volume, d.issue, d.first_page,
@@ -75,6 +72,7 @@ WHERE acts.record_id = cr.record_id
   AND acts.pchembl_value IS NOT NULL
   AND t.chembl_id = %s
 '''
+# compounds/activities from patents (ie. src_id 38):
 SQLq2 = '''
 SELECT acts.molregno, md.pref_name, md.chembl_id, cs.canonical_smiles, acts.pchembl_value, 
        acts.standard_type, cr.compound_name
@@ -109,6 +107,26 @@ def download_mappings():
   print(f"\nDownloading {BASE_URL}{UNIPROT2CHEMBL_FILE}")
   print(f"         to {DOWNLOAD_DIR}{UNIPROT2CHEMBL_FILE}")
   urlretrieve(f"{BASE_URL}{UNIPROT2CHEMBL_FILE}", DOWNLOAD_DIR + UNIPROT2CHEMBL_FILE)
+
+def parse_mappings(fn):
+  line_ct = slmf.wcl(fn)
+  print(f"\nProcessing {line_ct} input lines in mapping file {fn}")
+  up2chembl = {}
+  with open(fn, 'r') as ifh:
+    tsvreader = csv.reader(ifh, delimiter='\t')
+    ct = 0
+    for row in tsvreader:
+      ct += 1
+      slmf.update_progress(ct/line_ct)
+      if row[0].startswith('#'):
+        continue
+      if row[3] != 'SINGLE PROTEIN':
+        continue
+      if row[0] in up2chembl:
+        up2chembl[row[0]].append(row[1])
+      else:
+        up2chembl[row[0]] = [row[1]]
+  return up2chembl
 
 def load(args, dba, up2chembl, chembldb, logfile, logger):
   upct = len(up2chembl)
@@ -265,7 +283,7 @@ def load(args, dba, up2chembl, chembldb, logfile, logger):
   if not args['--quiet']:
     print(f"Inserted {cscti_ct} new 'ChEMBL Selective Compound' tdl_info rows")
   if dba_err_ct > 0:
-    print(f"WARNING: {db_err_ct} DB errors occurred. See logfile {logfile} for details.")
+    print(f"WARNING: {dba_err_ct} DB errors occurred. See logfile {logfile} for details.")
 
 
 if __name__ == '__main__':
@@ -333,27 +351,9 @@ if __name__ == '__main__':
     print(f"Error deleteing 'ChEMBL Info' dataset. See logfile {logfile} for details.")
     exit(1)
     
-  # First get mapping of UniProt accessions to ChEMBL IDs
-  #download_mappings()
-  up2chembl = {}
-  fn = DOWNLOAD_DIR + UNIPROT2CHEMBL_FILE
-  line_ct = slmf.wcl(fn)
-  if not args['--quiet']:
-    print(f"\nProcessing {line_ct} input lines in mapping file {fn}")
-  with open(fn, 'r') as ifh:
-    tsvreader = csv.reader(ifh, delimiter='\t')
-    ct = 0
-    for row in tsvreader:
-      ct += 1
-      slmf.update_progress(ct/line_ct)
-      if row[0].startswith('#'):
-        continue
-      if row[3] != 'SINGLE PROTEIN':
-        continue
-      if row[0] in up2chembl:
-        up2chembl[row[0]].append(row[1])
-      else:
-        up2chembl[row[0]] = [row[1]]
+  # Get latest mapping of UniProt accessions to ChEMBL IDs
+  download_mappings()
+  up2chembl = parse_mappings(DOWNLOAD_DIR+UNIPROT2CHEMBL_FILE)
   if not args['--quiet']:
     print("  Got {} UniProt to ChEMBL 'SINGLE PROTEIN' mappings".format(len(up2chembl)))
 
@@ -374,5 +374,3 @@ if __name__ == '__main__':
     
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))
-
-

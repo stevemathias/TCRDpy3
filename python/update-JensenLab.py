@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-04-13 12:47:30 smathias>
+# Time-stamp: <2022-01-12 14:35:44 smathias>
 """
 Update JensenLab DISEASES and PubMedScore data in TCRD.
 
@@ -27,7 +27,7 @@ __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
 __copyright__ = "Copyright 2020-2021, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "1.0.0"
+__version__   = "1.1.0"
 
 import os,sys,time
 from docopt import docopt
@@ -121,19 +121,18 @@ def load_pmscores(dba, logger, logfile):
   if dba_err_ct:
     print(f"WARNING: {db_err_ct} DB errors occurred. See logfile {logfile} for details.")
   
-  print("Loading {} JensenLab PubMed Score tdl_infos".format(len(pmscores)))
+  print("Updating {} JensenLab PubMed Scores...".format(len(pmscores)))
   ct = 0
   ti_ct = 0
   dba_err_ct = 0
   for pid,score in pmscores.items():
     ct += 1
-    rv = dba.ins_tdl_info({'protein_id': pid, 'itype': 'JensenLab PubMed Score', 
-                           'number_value': score} )
+    rv = dba.upd_pms_tdlinfo(pid, score)
     if rv:
       ti_ct += 1
     else:
       dba_err_ct += 1
-  print(f"  Inserted {ti_ct} new JensenLab PubMed Score tdl_info rows")
+  print(f"  Updated {ti_ct} 'JensenLab PubMed Score' tdl_info rows")
   if dba_err_ct:
     print(f"WARNING: {db_err_ct} DB errors occurred. See logfile {logfile} for details.")
 
@@ -212,10 +211,9 @@ def load_DISEASES(dba, logger, logfile):
       if not row[0].startswith('ENSP'):
         skip_ct += 1
         continue
-      # if float(row[6]) < 3.0:
-      #   # skip rows with confidence < 3.0
-      #   skip_ct += 1
-      #   continue
+      if row[2].startswith('ENSP'):
+        skip_ct += 1
+        continue
       ensp = row[0]
       sym = row[1]
       k = "%s|%s"%(ensp,sym)
@@ -246,8 +244,7 @@ def load_DISEASES(dba, logger, logfile):
   print(f"{ct} lines processed.")
   print("  Inserted {} new disease rows for {} proteins".format(dis_ct, len(pmark)))
   if skip_ct:
-    #print(f"  Skipped {skip_ct} rows w/o ENSP or with confidence < 3")
-    print(f"  Skipped {skip_ct} rows w/o ENSP")
+    print(f"  Skipped {skip_ct} rows w/o ENSP or with ENSP did")
   if notfnd:
     print("  No target found for {} stringids/symbols. See logfile {} for details.".format(len(notfnd), logfile))
   if dba_err_ct:
@@ -338,9 +335,11 @@ if __name__ == '__main__':
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
-  print("\nDownloading new JensenLab files...")
-  download_pmscores(args)
-  download_DISEASES(args)
+  # for the time being, this has to be done manually because Lars is forcing https
+  # -SLM 20210227
+  #print("\nDownloading new JensenLab files...")
+  #download_pmscores(args)
+  #download_DISEASES(args)
 
   start_time = time.time()
   print("\nUpdating JensenLab PubMed Text-mining Scores...")
@@ -359,7 +358,7 @@ if __name__ == '__main__':
   else:
     print(f"Error updating 'JensenLab PubMed Score' tdl_info values. Exiting.")
     exit(1)
-  # load new pmsores and TDL Infos
+  # load new pmsores and update 'JensenLab PubMed Score' TDL Infos
   load_pmscores(dba, logger, logfile)
   # update dataset
   upds = {'app': PROGRAM, 'app_version': __version__,

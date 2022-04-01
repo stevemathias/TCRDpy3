@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-04-01 16:49:06 smathias>
+# Time-stamp: <2022-02-21 09:58:37 smathias>
 """
 Load TIGA trait association data into TCRD from tab-delimited files.
 
@@ -33,7 +33,6 @@ import os,sys,time
 from docopt import docopt
 from TCRD.DBAdaptor import DBAdaptor
 from urllib.request import urlretrieve
-import gzip
 import csv
 from collections import defaultdict
 import logging
@@ -43,30 +42,11 @@ PROGRAM = os.path.basename(sys.argv[0])
 TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
-DOWNLOAD_DIR = '../data/TIGA/'
-BASE_URL = 'https://unmtid-shinyapps.net/download/TIGA/'
+TIGA_RELEASE = '20210915' ## Make sure this is correct!!!
+DOWNLOAD_DIR = f'../data/TIGA/{TIGA_RELEASE}/'
+BASE_URL = f'https://unmtid-shinyapps.net/download/TIGA/{TIGA_RELEASE}/'
 TIGA_FILE = 'tiga_gene-trait_stats.tsv'
 TIGA_PROV_FILE = 'tiga_gene-trait_provenance.tsv'
-
-# def download(args):
-#   for gzfn in [TIGA_FILE, TIGA_PROV_FILE]:
-#     gzfp = DOWNLOAD_DIR + gzfn
-#     fp = gzfp.replace('.gz', '')
-#     if os.path.exists(gzfp):
-#       os.remove(gzfp)
-#     if os.path.exists(fp):
-#       os.remove(fp)
-#     if not args['--quiet']:
-#       print "\nDownloading", BASE_URL + gzfn
-#       print "         to", gzfp
-#     urllib.urlretrieve(BASE_URL + gzfn, gzfp)
-#     if not args['--quiet']:
-#       print "Uncompressing", gzfp
-#     ifh = gzip.open(gzfp, 'rb')
-#     ofh = open(fp, 'wb')
-#     ofh.write( ifh.read() )
-#     ifh.close()
-#     ofh.close()
 
 def download():
   for fn in [TIGA_FILE, TIGA_PROV_FILE]:
@@ -222,6 +202,15 @@ if __name__ == '__main__':
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
   #download()
+  # have to download manually for now due to:
+  # (venv) [smathias@juniper 20210915]$ wget https://unmtid-shinyapps.net/download/TIGA/20210915/tiga_gene-trait_stats.tsv
+  # --2021-10-27 14:52:43--  https://unmtid-shinyapps.net/download/TIGA/20210915/tiga_gene-trait_stats.tsv
+  # Resolving unmtid-shinyapps.net... 3.129.66.110
+  # Connecting to unmtid-shinyapps.net|3.129.66.110|:443... connected.
+  # ERROR: cannot verify unmtid-shinyapps.net’s certificate, issued by “/C=US/O=Let's Encrypt/CN=R3”:
+  # Issued certificate has expired.
+  # -SLM 20211027
+  
   start_time = time.time()
   load(dba, logger, logfile)
   # Dataset

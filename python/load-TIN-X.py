@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-04-21 14:47:41 smathias>
+# Time-stamp: <2021-11-30 10:35:44 smathias>
 """Load TIN-X data into TCRD from TSV files.
 
 Usage:
@@ -26,7 +26,7 @@ __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
 __copyright__ = "Copyright 2015-2021, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "4.1.0"
+__version__   = "4.1.2"
 
 import os,sys,time
 from docopt import docopt
@@ -124,6 +124,7 @@ def create_tables(curs):
   for table in ['tinx_target', 'tinx_novelty', 'tinx_disease',
                 'tinx_importance', 'tinx_articlerank']:
     curs.execute(TABLES[table])
+    curs.execute("GRANT SHOW VIEW on tinx.target TO appuser")
   print("Done.")
   
 def load_tinx(curs):
@@ -197,6 +198,10 @@ def load_dataset(curs):
     curs.execute(INS_SQL['provenance'], pd)
   print("Done.")
 
+def do_postprocessing(curs):
+  print('Adding foreign key fk_tinx_articlerank__tinx_importance...', end='')
+  curs.execute("ALTER TABLE tinx_articlerank ADD CONSTRAINT `fk_tinx_articlerank__tinx_importance` FOREIGN KEY (`doid`, `protein_id`) REFERENCES `tinx_importance` (`doid`, `protein_id`)") # takes ~12hrs
+  print("Done.")
 
 if __name__ == '__main__':
   print("\n{} (v{}) [{}]:\n".format(PROGRAM, __version__, time.strftime("%c")))
