@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# Time-stamp: <2022-09-06 09:36:48 smathias>
+# Time-stamp: <2022-09-06 10:48:35 smathias>
 """
-Load TIGA trait association data into TCRD from tab-delimited files.
+Update TIGA trait association data into TCRD from tab-delimited files.
 
 Usage:
-    load-TIGA.py [--debug | --quiet] [--dbhost=<str>] [--dbname=<str>] [--logfile=<file>] [--loglevel=<int>]
-    load-TIGA.py -h | --help
+    update-TIGA.py [--debug | --quiet] [--dbhost=<str>] [--dbname=<str>] [--logfile=<file>] [--loglevel=<int>]
+    update-TIGA.py -h | --help
 
 Options:
   -h --dbhost DBHOST   : MySQL database host name [default: localhost]
@@ -25,14 +25,14 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2020-2022, Steve Mathias"
+__copyright__ = "Copyright 2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "2.0.0"
+__version__   = "1.0.0"
 
 import os,sys,time
 from docopt import docopt
 from TCRD.DBAdaptor import DBAdaptor
-from urllib.request import urlretrieve
+import requests
 import csv
 from collections import defaultdict
 import logging
@@ -48,14 +48,21 @@ BASE_URL = f'https://unmtid-shinyapps.net/download/TIGA/{TIGA_RELEASE}/'
 TIGA_FILE = 'tiga_gene-trait_stats.tsv'
 TIGA_PROV_FILE = 'tiga_gene-trait_provenance.tsv'
 
-def download():
+def download(args):
+  if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
   for fn in [TIGA_FILE, TIGA_PROV_FILE]:
-    fp = DOWNLOAD_DIR + fn
-    if os.path.exists(fp):
-      os.remove(fp)
-    print("\nDownloading {}".format(BASE_URL + fn))
-    print("         to {}".format(fp))
-    urlretrieve(BASE_URL + fn, fp)
+    url = f"{BASE_URL}{fn}"
+    ofn = f"{DOWNLOAD_DIR}{fn}"
+    if not args['--quiet']:
+      print(f"Downloading {url}")
+      print(f"         to {ofn}")
+    r = requests.get(url)
+    if r.status_code == 200:
+      with open(ofn, "w", encoding="UTF-8") as ofh:
+        ofh.write(r.text)
+    else:
+      print("Error downloading {}: {}.".format(url, r.status_code))
 
 def load(dba, logger, logfile):
   infile = DOWNLOAD_DIR + TIGA_FILE
@@ -201,26 +208,28 @@ if __name__ == '__main__':
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
-  #download()
-  # have to download manually for now due to:
-  # (venv) [smathias@juniper 20210915]$ wget https://unmtid-shinyapps.net/download/TIGA/20210915/tiga_gene-trait_stats.tsv
-  # --2021-10-27 14:52:43--  https://unmtid-shinyapps.net/download/TIGA/20210915/tiga_gene-trait_stats.tsv
-  # Resolving unmtid-shinyapps.net... 3.129.66.110
-  # Connecting to unmtid-shinyapps.net|3.129.66.110|:443... connected.
-  # ERROR: cannot verify unmtid-shinyapps.net’s certificate, issued by “/C=US/O=Let's Encrypt/CN=R3”:
-  # Issued certificate has expired.
-  # -SLM 20211027
+  download(args)
   
   start_time = time.time()
+  
+  print("\nUpdating TIGA data...")
+  # delete existing TIGA data
+  for tblname in ['tiga', 'tiga_provenance']:
+    rv = dba.del_all_rows(tblname)
+    if type(rv) == int:
+      print(f"  Deleted {rv} existing rows from {tblname}.")
+    else:
+      print(f"Error deleting existing data from {tblname}. Exiting.")
+      exit(1)
+  
   load(dba, logger, logfile)
-  # Dataset
-  dataset_id = dba.ins_dataset( {'name': 'TIGA', 'source': f'TIGA Download files {TIGA_FILE} and {TIGA_PROV_FILE} from {BASE_URL}', 'app': PROGRAM, 'app_version': __version__, 'url': 'https://unmtid-shinyapps.net/shiny/tiga/'} )
-  assert dataset_id, f"Error inserting dataset. See logfile {logfile} for details."
-  # Provenance
-  provs = [ {'dataset_id': dataset_id, 'table_name': 'tiga'},
-            {'dataset_id': dataset_id, 'table_name': 'tiga_provenance'} ]
-  for prov in provs:
-    rv = dba.ins_provenance(prov)
-    assert rv, f"Error inserting provenance. See logfile {logfile} for details."
+  
+  # update dataset
+  upds = {'app': PROGRAM, 'app_version': __version__,
+          'datetime': time.strftime("%Y-%m-%d %H:%M:%S"),
+          'source': f'TIGA release {TIGA_RELEASE} download files from {BASE_URL}'}
+  rv = dba.upd_dataset_by_name('TIGA', upds)
+  assert rv, f"Error updating dataset 'TIGA'. Exiting."
+  
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))

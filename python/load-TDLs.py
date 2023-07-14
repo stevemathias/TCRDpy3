@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# Time-stamp: <2021-10-29 14:02:57 smathias>
-"""Calculate and load target TDL assignments, and also export an new UniProt mapping file.
+# Time-stamp: <2023-07-14 13:11:33 smathias>
+"""Calculate and load target TDL assignments, and also export a new UniProt mapping file.
 
 Usage:
     load-TDLs.py [--debug | --quiet] [--dbhost=<str>] [--dbname=<str>] [--logfile=<file>] [--loglevel=<int>]
@@ -24,9 +24,9 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2015-2021, Steve Mathias"
+__copyright__ = "Copyright 2015-2023, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "4.2.0"
+__version__   = "4.4.0"
 
 import os,sys,time,shutil
 from docopt import docopt
@@ -38,7 +38,8 @@ PROGRAM = os.path.basename(sys.argv[0])
 TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}{PROGRAM}.log"
-OUTDIR = '/usr/local/apache2/htdocs/tcrd/download/old_versions/'
+#OUTDIR = '/usr/local/apache2/htdocs/tcrd/download/old_versions/'
+OUTDIR = '../exports/'
 OUTFILE_PAT = OUTDIR + 'PharosTCRDv{}_UniProt_Mapping.tsv'
 #OUTFILE = f'{OUTDIR}PharosTCRD_UniProt_Mapping.tsv'
 
@@ -88,7 +89,7 @@ def load_tdls(dba, logfile, logger):
 
 def compute_tdl(tinfo):
   '''
-  Input is a dictionary of target info, as returned by get_target4tdlcalc()
+  Input is a dictionary of target info, as returned by dba.get_target4tdlcalc()
   Returns (tdl, bump_flag)
   '''
   bump_flag = False
@@ -118,10 +119,6 @@ def compute_tdl(tinfo):
     efl_goa = False
     if 'Experimental MF/BP Leaf Term GOA' in ptdlis:
       efl_goa = True
-    # # OMIM Phenotype
-    # omim = False
-    # if 'phenotypes' in p and len([d for d in p['phenotypes'] if d['ptype'] == 'OMIM']) > 0:
-    #   omim = True
     # Decide between Tbio and Tdark
     dark_pts = 0    
     if pms < 5:     # PubMed Score < 5
@@ -191,12 +188,12 @@ if __name__ == '__main__':
   rv = dba.ins_provenance({'dataset_id': dataset_id, 'table_name': 'target', 'column_name': 'tdl'})
   assert rv, f"Error inserting provenance. See logfile {logfile} for details."
 
-  # Add version number to filename and archive mapping file to old_versions dir
+  # Add version number to filename
   mmver = '.'.join( dbi['data_ver'].split('.')[:2] )
   outfn = OUTFILE_PAT.format(mmver)
   export_uniprot_mapping(dba, outfn)
-  shutil.copy(outfn, '/usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv')
-  print(f"Copied {outfn} to /usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv")
+  #shutil.copy(outfn, '/usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv')
+  #print(f"Copied {outfn} to /usr/local/apache2/htdocs/tcrd/download/PharosTCRD_UniProt_Mapping.tsv")
   
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))

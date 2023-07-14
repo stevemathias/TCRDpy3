@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-03-15 17:36:56 smathias>
+# Time-stamp: <2022-09-06 14:26:45 smathias>
 """Generate TIN-X TSV files with scores and PubMed ID rankings from Jensen Lab's protein and disease mentions TSV files.
 
 Usage:
@@ -24,15 +24,15 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2016-2021, Steve Mathias"
+__copyright__ = "Copyright 2016-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "4.0.3"
+__version__   = "5.0.0"
 
 import os,sys,time
 from docopt import docopt
 from TCRD.DBAdaptor import DBAdaptor
 from TINX import TINX
-from urllib.request import urlretrieve
+import requests
 import logging
 import obo
 import slm_util_functions as slmf
@@ -81,7 +81,7 @@ def parse_do(args, dofile):
     print("  Got {} Disease Ontology terms".format(len(do)))
   return do
     
-def tinx(args, dba, do, logger, logfile):
+def do_tinx(args, dba, do, logger, logfile):
   tinx = TINX({'TINX_PROTEIN_FILE': JL_DOWNLOAD_DIR+TINX_PROTEIN_FILE,
                'TINX_DISEASE_FILE': JL_DOWNLOAD_DIR+TINX_DISEASE_FILE,
                'logfile': logfile, 'OUTDIR': TINX_OUTDIR}, dba, do)
@@ -188,7 +188,7 @@ if __name__ == '__main__':
   download_mentions(args)
   do = parse_do(args, DO_DOWNLOAD_DIR+DO_OBO) # get DO names and defs
   print(f"\nGenerating TIN-X TSV files. See logfile {logfile} for details.\n")
-  tinx_pmids = tinx(args, dba, do, logger, logfile)
+  tinx_pmids = do_tinx(args, dba, do, logger, logfile)
   tinx_pubmed(args, dba, tinx_pmids, logger)
   ets = slmf.secs2str(time.time() - st)
   print(f"\n{PROGRAM}: Done. Total time: {ets}\n")

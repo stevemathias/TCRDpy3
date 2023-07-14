@@ -5,6 +5,7 @@ log/
 exports/
 SQL/dumps6/
 SQL/dumps7/
+doc/venv.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-07 10:40:00 smathias>
+# Time-stamp: <2022-09-05 11:21:22 smathias>
 """Load OMIM phenotype associations into TCRD from OMIM genemap.txt file.
 
 Usage:
@@ -125,7 +125,7 @@ def load(args, dba, logger, logfile):
         init = {'omim_ps_id': row[0], 'mim': row[1], 'title': row[2]}
       else:
         err_ct += 1
-        logger.warn("Parsing error for row {}".format(row))
+        logger.warning("Parsing error for row {}".format(row))
         continue
       rv = dba.ins_omim_ps(init)
       if not rv:
@@ -206,7 +206,7 @@ def load(args, dba, logger, logfile):
             pt_ct += 1
       if not found:
         notfnd_ct += 1
-        logger.warn("No target found for row {}".format(row))
+        logger.warning("No target found for row {}".format(row))
       pbar.update(ct)
   pbar.finish()
   print "{} lines processed".format(ct)

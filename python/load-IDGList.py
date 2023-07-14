@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-21 11:31:00 smathias>
-"""Load IDG Eligible flags into TCRD from CSV file.
+# Time-stamp: <2022-09-02 16:06:35 smathias>
+"""Load IDG Target List flags into TCRD from JSON file.
 
 Usage:
     load-IDGList.py [--debug | --quiet] [--dbhost=<str>] [--dbname=<str>] [--logfile=<file>] [--loglevel=<int>]
@@ -24,28 +24,26 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2019-2020, Steve Mathias"
+__copyright__ = "Copyright 2019-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "3.0.0"
+__version__   = "4.0.0"
 
 import os,sys,time
 from docopt import docopt
 from TCRD.DBAdaptor import DBAdaptor
 import logging
-import csv
+import json
 import slm_util_functions as slmf
 
 PROGRAM = os.path.basename(sys.argv[0])
-TCRD_VER = '7' ## !!! CHECK THIS IS CORRECT !!! ##
+TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
-#IDG_LIST_FILE = '../data/IDG_Lists/IDG_List_20210120_forv6.csv'
-IDG_LIST_FILE = '../data/IDG_Lists/IDG_List_20210120.csv'
+IDG_LIST_FILE = '../data/IDGTargets/IDG_TargetList_Y5.json'
 
 def load(args, dba, logger, logfile):
-  line_ct = slmf.wcl(IDG_LIST_FILE)
-  print(f"\nProcessing {line_ct} lines in file {IDG_LIST_FILE}")
-  logger.info(f"Processing {line_ct} lines in list file {IDG_LIST_FILE}")
+  print(f"\nProcessing JSON file {IDG_LIST_FILE}")
+  logger.info(f"Processing JSON file {IDG_LIST_FILE}")
   ct = 0
   idg_ct = 0
   fam_ct = 0
@@ -53,36 +51,34 @@ def load(args, dba, logger, logfile):
   multfnd = []
   dba_err_ct = 0
   with open(IDG_LIST_FILE, 'r') as ifh:
-    csvreader = csv.reader(ifh)
-    for row in csvreader:
-      if ct == 0:
-        header = row # header line
-        ct += 1
-        continue
-      ct += 1
-      slmf.update_progress(ct/line_ct)
-      sym = row[0]
-      fam = row[1]
-      if fam == 'IonChannel':
-        fam = 'IC'
-      tids = dba.find_target_ids({'sym': sym})
-      if not tids:
-        notfnd.append(sym)
-        continue
-      if len(tids) > 1:
-        multfnd.append(sym)
-        continue
-      rv = dba.do_update({'table': 'target', 'col': 'idg', 'id': tids[0], 'val': 1})
-      if rv:
-        idg_ct += 1
-      else:
-        db_err_ct += 1
-      rv = dba.do_update({'table': 'target', 'col': 'fam', 'id': tids[0], 'val': fam})
-      if rv:
-        fam_ct += 1
-      else:
-        dba_err_ct += 1
-  print(f"{ct} lines processed")
+    idglist = json.load(ifh)
+  lstct = len(idglist)
+  print(f"Got {lstct} eligible targets from current IDG target list")
+  for d in idglist:
+    ct += 1
+    slmf.update_progress(ct/lstct)
+    sym = d['Gene']
+    fam = d['IDGFamily']
+    if fam == 'IonChannel':
+      fam = 'IC'
+    tids = dba.find_target_ids({'sym': sym})
+    if not tids:
+      notfnd.append(sym)
+      continue
+    if len(tids) > 1:
+      multfnd.append(sym)
+      continue
+    rv = dba.do_update({'table': 'target', 'col': 'idg', 'id': tids[0], 'val': 1})
+    if rv:
+      idg_ct += 1
+    else:
+      db_err_ct += 1
+    rv = dba.do_update({'table': 'target', 'col': 'fam', 'id': tids[0], 'val': fam})
+    if rv:
+      fam_ct += 1
+    else:
+      dba_err_ct += 1
+  print(f"{ct} targets processed")
   print(f"{idg_ct} target rows updated with IDG flags")
   print(f"{fam_ct} target rows updated with fams")
   if notfnd:
@@ -121,15 +117,21 @@ if __name__ == '__main__':
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
+  # set existing IDG target flags from previous list to zero
+  rv = dba.upd_idgs_zero()
+  if type(rv) == int:
+    print(f"  Reset {rv} target.idg values to zero.")
+  else:
+    print(f"Error updating target.idg values. Exiting.")
+    exit(1)
   load(args, dba, logger, logfile)
     
   # Dataset and Provenance
-  dataset_id = dba.ins_dataset( {'name': 'IDG Eligible Targets List', 'source': f'IDG generated data in file {IDG_LIST_FILE}.', 'app': PROGRAM, 'app_version': __version__, 'comments': 'IDG Target Flags are archived on GitHub in repo https://github.com/druggablegenome/IDGTargets.', 'url': 'https://github.com/druggablegenome/IDGTargets'} )
+  dataset_id = dba.ins_dataset( {'name': 'IDG Target List', 'source': f'IDG generated data in file {IDG_LIST_FILE}.', 'app': PROGRAM, 'app_version': __version__, 'comments': 'IDG Target Flags are archived on GitHub in repo https://github.com/druggablegenome/IDGTargets.', 'url': 'https://github.com/druggablegenome/IDGTargets'} )
   assert dataset_id, f"Error inserting dataset See logfile {logfile} for details."
   # Provenance
   provs = [ {'dataset_id': dataset_id, 'table_name': 'target', 'column_name': 'idg'},
             {'dataset_id': dataset_id, 'table_name': 'target', 'column_name': 'fam', 'where_clause': 'idg = 1'} ]
-            #{'dataset_id': dataset_id, 'table_name': 'target', 'column_name': 'famext', 'where_clause': 'column_name == "fam"', 'where_clause': 'idg = 1'}
   for prov in provs:
     rv = dba.ins_provenance(prov)
     assert rv, f"Error inserting provenance. See logfile {logfile} for details."

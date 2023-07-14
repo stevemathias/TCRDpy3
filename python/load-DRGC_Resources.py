@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-03-15 12:01:58 smathias>
+# Time-stamp: <2022-09-06 12:34:00 smathias>
 """Load DRGC resource data into TCRD via RSS API.
 
 Usage:
@@ -24,9 +24,9 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2019-2020, Steve Mathias"
+__copyright__ = "Copyright 2019-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "4.0.0"
+__version__   = "5.0.0"
 
 import os,sys,time
 from docopt import docopt
@@ -42,6 +42,22 @@ LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 # API Docs: https://rss.ccs.miami.edu/rss-apis/
 RSS_API_BASE_URL = 'https://rss.ccs.miami.edu/rss-api/'
+
+def get_target_data():
+  url = f"{RSS_API_BASE_URL}target"
+  resp = requests.get(url) # , verify=False
+  if resp.status_code == 200:
+    return resp.json()
+  else:
+    return False
+
+def get_resource_data(idval):
+  url = f"{RSS_API_BASE_URL}target/id?id={idval}"
+  resp = requests.get(url) # , verify=False
+  if resp.status_code == 200:
+    return resp.json()
+  else:
+    return False
 
 def load(args, dba, logger, logfile):
   if not args['--quiet']:
@@ -68,18 +84,18 @@ def load(args, dba, logger, logfile):
     sym = td['target']
     #rssid = td['id'].rsplit('/')[-1]
     rssid = td['id']
-    resource_data = get_resource_data(td['id'])
+    resource_data = get_resource_data(rssid)
     dbjson = json.dumps(resource_data['data'][0]['resource'])
     tids = dba.find_target_ids({'sym': sym})
     if not tids:
       tids = dba.find_target_ids({'sym': sym}, incl_alias=True)
       if not tids:
         notfnd.add(sym)
-        logger.warn("No target found for {}".format(sym))
+        logger.warning("No target found for {}".format(sym))
         continue
     if len(tids) > 1:
       mulfnd.add(sym)
-      logger.warn("Multiple targets found for {}".format(sym))
+      logger.warning("Multiple targets found for {}".format(sym))
     tid = tids[0]
     rv = dba.ins_drgc_resource( {'rssid': rssid, 'resource_type': td['resourceType'],
                                  'target_id': tid, 'json': dbjson} )
@@ -97,24 +113,6 @@ def load(args, dba, logger, logfile):
     print("WARNING: Multiple targets found for {} symbols. See logfile {} for details.".format(len(mulfnd), logfile))
   if dba_err_ct > 0:
     print(f"ERROR: {dba_err_ct} DB errors occurred. See logfile {logfile} for details.")
-
-def get_target_data():
-  url = f"{RSS_API_BASE_URL}target"
-  jsondata = None
-  resp = requests.get(url, verify=False)
-  if resp.status_code == 200:
-    return resp.json()
-  else:
-    return False
-
-def get_resource_data(idval):
-  url = f"{RSS_API_BASE_URL}target/id?id={idval}"
-  jsondata = None
-  resp = requests.get(url, verify=False)
-  if resp.status_code == 200:
-    return resp.json()
-  else:
-    return False
 
 
 if __name__ == '__main__':
@@ -143,6 +141,20 @@ if __name__ == '__main__':
   logger.info("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
+
+  # delete existing DRGC resources and dataset, if any
+  print("deleting existing DRGC Resources (if any)...")
+  rv = dba.del_all_rows('drgc_resource')
+  if type(rv) == int:
+    print(f"  Deleted {rv} existing rows from drgc_resource.")
+  else:
+    print(f"Error deleting existing data from {tblname}. Exiting.")
+    exit(1)
+  rv = dba.del_dataset('DRGC Resources')
+  if not rv:
+    print(f"Error deleting dataset 'DRGC Resources'. Exiting.")
+    exit(1)
+  print("  Deleted existing DRGC Resources dataset/provenance.")
 
   start_time = time.time()
   load(args, dba, logger, logfile)

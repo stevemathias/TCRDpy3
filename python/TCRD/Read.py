@@ -3,7 +3,7 @@ Read/Search (ie. SELECT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2022-04-01 12:20:20 smathias>
+Time-stamp: <2022-09-02 15:03:52 smathias>
 '''
 from contextlib import closing
 from collections import defaultdict
@@ -711,7 +711,6 @@ class ReadMethodsMixin:
       pmids = [str(row[0]) for row in curs.fetchall()]
     return pmids
 
-<<<<<<< HEAD
   def get_diseases(self, dtype=None, with_did=False):
     diseases = []
     sql = "SELECT * FROM disease"
@@ -794,7 +793,3 @@ class ReadMethodsMixin:
       curs.execute("SELECT * FROM drug_activity")
       drug_activities = [row for row in curs.fetchall()]
     return drug_activities
-
-=======
-  
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7

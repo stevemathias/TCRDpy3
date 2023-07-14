@@ -3,7 +3,7 @@ Update methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2022-04-01 12:20:33 smathias>
+Time-stamp: <2022-09-02 14:26:59 smathias>
 '''
 from mysql.connector import Error
 from contextlib import closing
@@ -72,22 +72,14 @@ class UpdateMethodsMixin:
         row_ct = curs.rowcount
         self._conn.commit()
       except Error as e:
-<<<<<<< HEAD
         self._logger.error(f"MySQL Error in upd_tdls_null(): {e}")
-=======
-        self._logger.error(f"MySQL Error in set_tdls_null(): {e}")
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7
         self._conn.rollback()
         return False
     return row_ct
 
   def upd_pmstdlis_zero(self):
     '''
-<<<<<<< HEAD
     Function  : Set all JensenLab PubMed Score' tdl_info values to 0
-=======
-    Function  : Set all target.tdl values to NULL
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7
     Arguments : N/A
     Returns   : Integer count of rows updated
     '''
@@ -99,16 +91,30 @@ class UpdateMethodsMixin:
         row_ct = curs.rowcount
         self._conn.commit()
       except Error as e:
-<<<<<<< HEAD
         self._logger.error(f"MySQL Error in upd_pmstdlis_zero(): {e}")
-=======
-        self._logger.error(f"MySQL Error in set_tdls_null(): {e}")
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7
         self._conn.rollback()
         return False
     return row_ct
 
-<<<<<<< HEAD
+  def upd_idgs_zero(self):
+    '''
+    Function  : Set all target.idg columns to 0
+    Arguments : N/A
+    Returns   : Integer count of rows updated
+    '''
+    sql = "UPDATE target SET idg = 0 WHERE idg = 1"
+    self._logger.debug(f"SQL: {sql}")
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql)
+        row_ct = curs.rowcount
+        self._conn.commit()
+      except Error as e:
+        self._logger.error(f"MySQL Error in upd_idgs_zero(): {e}")
+        self._conn.rollback()
+        return False
+    return row_ct
+
   def upd_pms_tdlinfo(self, protein_id, number_value):
     '''
     Function  : Update a 'JensenLab PubMed Score' tdl_info value for a single protein_id
@@ -134,7 +140,3 @@ class UpdateMethodsMixin:
         self._conn.rollback()
         return False
     return True
-
-=======
-  
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7

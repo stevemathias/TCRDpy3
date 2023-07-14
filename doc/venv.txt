@@ -1,7 +1,38 @@
 This is the migration of TCRD code to python3.
 
-Setup
-=====
+Setup (habanero)
+================
+[smathias@habanero ~]$ curl https://pyenv.run | bash
+[smathias@habanero ~]$ pyenv install 3.9.11
+[smathias@habanero ~]$ pyenv virtualenv 3.9.11 tkb
+[smathias@habanero ~]$ cd KMCTKB
+[smathias@habanero ~]$ pyenv local tkb
+(tkb) [smathias@habanero KMCTKB]$ pip install --upgrade pip
+(tkb) [smathias@habanero KMCTKB]$ pip install wheel
+(tkb) [smathias@habanero KMCTKB]$ pip install mysql.connector
+## Also add AIRFLOW_HOME to .bashrc ???
+(tkb) [smathias@habanero KMCTKB]$ export AIRFLOW_HOME=./airflow 
+(tkb) [smathias@habanero KMCTKB]$ AIRFLOW_VERSION=2.2.5
+(tkb) [smathias@habanero KMCTKB]$ PYTHON_VERSION="$(python --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
+(tkb) [smathias@habanero KMCTKB]$ CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+## https://raw.githubusercontent.com/apache/airflow/constraints-2.2.5/constraints-3.9.txt
+(tkb) [smathias@habanero KMCTKB]$ pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+
+(tkb) [smathias@habanero KMCTKB]$ airflow standalone
+...
+Login with username: admin  password: vavv7d6UXpUPmDnT
+...
+(tkb) [smathias@habanero KMCTKB]$ google-chrome &
+visit localhost:/8080
+
+
+(tkb) [smathias@habanero KMCTKB]$ pip install ipython
+
+
+
+
+Setup (juniper)
+===============
 [smathias@juniper ~]$ mkdir TCRDpy3
 [smathias@juniper TCRDpy3]$ cd TCRDpy3
 [smathias@juniper TCRDpy3]$ mkdir doc
@@ -11,8 +42,6 @@ Setup
 [smathias@juniper TCRDpy3]$ mkdir data
 [smathias@juniper TCRDpy3]$ touch doc/README
 
-venv stuff
-----------
 [smathias@juniper TCRDpy3]$ virtualenv venv
 [smathias@juniper TCRDpy3]$ source venv/bin/activate
 (venv) [smathias@juniper TCRDpy3]$ pip install ...

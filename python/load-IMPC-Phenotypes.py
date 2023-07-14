@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-01-11 07:44:57 smathias>
+# Time-stamp: <2022-09-05 11:20:50 smathias>
 """Load IMPC phenotype data into TCRD from CSV file.
 
 Usage:
@@ -130,7 +130,7 @@ def load(args, dba, logger, logfile):
         nhpids = dba.find_nhprotein_ids({'sym': sym}, species = 'Mus musculus')
         if not nhpids:
           notfnd.add(sym)
-          logger.warn("No nhprotein found for symbol {}".format(sym))
+          logger.warning("No nhprotein found for symbol {}".format(sym))
           continue
         sym2nhpids[sym] = nhpids # save this mapping so we only lookup each symbol once
       pval = None
@@ -138,7 +138,7 @@ def load(args, dba, logger, logfile):
         try:
           pval = float(row[23])
         except:
-          logger.warn("Problem converting p_value {} for row {}".format(row[23], ct))
+          logger.warning("Problem converting p_value {} for row {}".format(row[23], ct))
       sex = None
       if row[4] and len(row[4]) <= 8:
         sex = row[4]
@@ -281,7 +281,7 @@ def load(args, dba, logger, logfile):
         nhpids = dba.find_nhprotein_ids({'sym': sym}, species = 'Mus musculus')
         if not nhpids:
           notfnd.add(sym)
-          logger.warn("No nhprotein found for symbol {}".format(sym))
+          logger.warning("No nhprotein found for symbol {}".format(sym))
           continue
         sym2nhpids[sym] = nhpids # save this mapping so we only lookup each symbol once
       pval = None
@@ -289,7 +289,7 @@ def load(args, dba, logger, logfile):
         try:
           pval = float(row[40])
         except:
-          logger.warn("Problem converting p_value {} for row {}".format(row[40], ct))
+          logger.warning("Problem converting p_value {} for row {}".format(row[40], ct))
       sex = None
       if row[4] and len(row[4]) <= 8:
         sex = row[4]

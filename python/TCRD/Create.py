@@ -3,7 +3,7 @@ Create (ie. INSERT) methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2022-04-01 12:19:09 smathias>
+Time-stamp: <2022-09-02 14:58:32 smathias>
 Time-stamp: <2021-09-28 12:10:00 smathias>
 '''
 from mysql.connector import Error
@@ -844,7 +844,6 @@ class CreateMethodsMixin:
       return False
     return True
 
-<<<<<<< HEAD
   def ins_drug_activity(self, init, commit=True):
     if 'target_id' in init and 'drug' in init and 'dcid' in init and 'has_moa' in init:
       params = [init['target_id'], init['drug'],  init['dcid'], init['has_moa']]
@@ -873,8 +872,6 @@ class CreateMethodsMixin:
         return False
     return True
   
-=======
->>>>>>> 7a2d909d09fb375558f5724be512a09f5e4e59b7
   def ins_cmpd_activity(self, init, commit=True):
     if 'target_id' in init and 'catype' in init and 'cmpd_id_in_src' in init:
       params = [init['target_id'], init['catype'], init['cmpd_id_in_src']]

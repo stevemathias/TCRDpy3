@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2022-01-12 14:35:44 smathias>
+# Time-stamp: <2022-09-05 10:33:26 smathias>
 """
 Update JensenLab DISEASES and PubMedScore data in TCRD.
 
@@ -25,21 +25,21 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2020-2021, Steve Mathias"
+__copyright__ = "Copyright 2020-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "1.1.0"
+__version__   = "2.0.0"
 
 import os,sys,time
 from docopt import docopt
 from TCRD.DBAdaptor import DBAdaptor
-from urllib.request import urlretrieve
+import requests
 import csv
 import logging
 import slm_util_functions as slmf
 
 PROGRAM = os.path.basename(sys.argv[0])
-TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
-LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
+DB_MAJVERNUM_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
+LOGDIR = f"../log/tcrd{DB_MAJVERNUM_VER}logs/"
 LOGFILE = f"{LOGDIR}/{PROGRAM}.log"
 
 JL_BASE_URL = 'http://download.jensenlab.org/'
@@ -50,21 +50,36 @@ DISEASES_FILE_E = 'human_disease_experiments_filtered.tsv'
 DISEASES_FILE_T = 'human_disease_textmining_filtered.tsv'
 
 def download_pmscores(args):
-  if os.path.exists(JL_DOWNLOAD_DIR + PM_SCORES_FILE):
-    os.remove(JL_DOWNLOAD_DIR + PM_SCORES_FILE)
+  url = f"{JL_BASE_URL}KMC/{PM_SCORES_FILE}"
+  ofn = f"{JL_DOWNLOAD_DIR}{PM_SCORES_FILE}"
+  if os.path.exists(ofn):
+    os.remove(ofn)
   if not args['--quiet']:
-    print(f"Downloading {JL_BASE_URL}KMC/{PM_SCORES_FILE}")
-    print(f"         to {JL_DOWNLOAD_DIR}{PM_SCORES_FILE}")
-  urlretrieve(f"{JL_BASE_URL}KMC/{PM_SCORES_FILE}", JL_DOWNLOAD_DIR + PM_SCORES_FILE)
+    print(f"Downloading {url}")
+    print(f"         to {ofn}")
+  r = requests.get(url)
+  if r.status_code == 200:
+    with open(ofn, "w", encoding="UTF-8") as ofh:
+      ofh.write(r.text)
+  else:
+    print("Error downloading {}: {}.".format(url, r.status_code))
 
 def download_DISEASES(args):
   for fn in [DISEASES_FILE_K, DISEASES_FILE_E, DISEASES_FILE_T]:
-    if os.path.exists(JL_DOWNLOAD_DIR + fn):
-      os.remove(JL_DOWNLOAD_DIR + fn)
+    url = f"{JL_BASE_URL}{fn}"
+    ofn = f"{JL_DOWNLOAD_DIR}{fn}"
+    if os.path.exists(ofn):
+      os.remove(ofn)
     if not args['--quiet']:
-      print("Downloading {}".format(JL_BASE_URL + fn))
-      print("         to {}".format(JL_DOWNLOAD_DIR + fn))
-    urlretrieve(JL_BASE_URL + fn, JL_DOWNLOAD_DIR + fn)
+      print(f"Downloading {url}")
+      print(f"         to {ofn}")
+    r = requests.get(url)
+    if r.status_code == 200:
+      with open(ofn, "w", encoding="UTF-8") as ofh:
+        ofh.write(r.text)
+    else:
+      print("Error downloading {}: {}.".format(url, r.status_code))
+
 
 def load_pmscores(dba, logger, logfile):
   ensp2pids = {} # ENSP => list of TCRD protein ids
@@ -76,7 +91,7 @@ def load_pmscores(dba, logger, logfile):
   infile = JL_DOWNLOAD_DIR + PM_SCORES_FILE
   line_ct = slmf.wcl(infile)
   print(f"Processing {line_ct} lines in file {infile}")
-  with open(infile, 'rU') as tsv:
+  with open(infile, 'r') as tsv:
     tsvreader = csv.reader(tsv, delimiter='\t')
     ct = 0
     for row in tsvreader:
@@ -99,7 +114,7 @@ def load_pmscores(dba, logger, logfile):
           pids = dba.find_protein_ids_by_xref({'xtype': 'STRING', 'value': '9606.'+ensp})
           if not pids:
             notfnd.add(ensp)
-            logger.warn("No protein found for {}".format(ensp))
+            logger.warning("No protein found for {}".format(ensp))
             continue
         ensp2pids[ensp] = pids # save this mapping so we only lookup each ENSP once
       for pid in pids:
@@ -171,7 +186,7 @@ def load_DISEASES(dba, logger, logfile):
           pids = dba.find_protein_ids({'sym': sym})
           if not pids:
             notfnd.add(k)
-            logger.warn(f"No protein found for {k}")
+            logger.warning(f"No protein found for {k}")
             continue
         k2pids[k] = pids # save this mapping so we only lookup each ENSP|sym once
       dtype = 'JensenLab Knowledge ' + row[4]
@@ -196,7 +211,7 @@ def load_DISEASES(dba, logger, logfile):
   fn = JL_DOWNLOAD_DIR + DISEASES_FILE_E
   line_ct = slmf.wcl(fn)
   print(f"Processing {line_ct} lines in DISEASES Experiment file {fn}")
-  with open(fn, 'rU') as ifh:
+  with open(fn, 'r') as ifh:
     tsvreader = csv.reader(ifh, delimiter='\t')
     ct = 0
     k2pids = {} # ENSP|sym => list of TCRD protein ids
@@ -229,7 +244,7 @@ def load_DISEASES(dba, logger, logfile):
           pids = dba.find_protein_ids({'sym': sym})
           if not pids:
             notfnd.add(k)
-            logger.warn(f"No protein found for {k}")
+            logger.warning(f"No protein found for {k}")
             continue
         k2pids[k] = pids # save this mapping so we only lookup each ENSP|sym once
       dtype = 'JensenLab Experiment ' + row[4]
@@ -254,7 +269,7 @@ def load_DISEASES(dba, logger, logfile):
   fn = JL_DOWNLOAD_DIR + DISEASES_FILE_T
   line_ct = slmf.wcl(fn)
   print(f"Processing {line_ct} lines in DISEASES Textmining file {fn}")
-  with open(fn, 'rU') as ifh:
+  with open(fn, 'r') as ifh:
     tsvreader = csv.reader(ifh, delimiter='\t')
     ct = 0
     k2pids = {} # ENSP|sym => list of TCRD protein ids
@@ -288,7 +303,7 @@ def load_DISEASES(dba, logger, logfile):
           pids = dba.find_protein_ids({'sym': sym})
           if not pids:
             notfnd.add(k)
-            logger.warn(f"No protein found for {k}")
+            logger.warning(f"No protein found for {k}")
             continue
         k2pids[k] = pids # save this mapping so we only lookup each ENSP|sym once
       dtype = 'JensenLab Text Mining'
@@ -335,11 +350,9 @@ if __name__ == '__main__':
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
-  # for the time being, this has to be done manually because Lars is forcing https
-  # -SLM 20210227
-  #print("\nDownloading new JensenLab files...")
-  #download_pmscores(args)
-  #download_DISEASES(args)
+  print("\nDownloading new JensenLab files...")
+  download_pmscores(args)
+  download_DISEASES(args)
 
   start_time = time.time()
   print("\nUpdating JensenLab PubMed Text-mining Scores...")
@@ -383,8 +396,5 @@ if __name__ == '__main__':
   rv = dba.upd_dataset_by_name('JensenLab DISEASES', upds)
   assert rv, "Error updating dataset 'JensenLab DISEASES'. Exiting."
 
-  # TISSUES
-  # COMPARTMENTS
-  
   elapsed = time.time() - start_time
   print("\n{}: Done. Elapsed time: {}\n".format(PROGRAM, slmf.secs2str(elapsed)))

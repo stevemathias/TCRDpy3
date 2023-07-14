@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-03-15 14:30:59 smathias>
+# Time-stamp: <2022-09-05 11:18:58 smathias>
 """Load HGNC annotations for TCRD targets from downloaded TSV file.
 
 Usage:
@@ -89,7 +89,7 @@ def load(args, dba, dataset_id, logger, logfile):
         pids = dba.find_protein_ids({'uniprot': up})
       if up and not pids:
         notfnd.add(f"{sym}|{geneid}|{up}")
-        logger.warn(f"No protein found for {sym}|{geneid}|{up}")
+        logger.warning(f"No protein found for {sym}|{geneid}|{up}")
         continue
       for pid in pids:
         # HGNC xref
@@ -127,7 +127,7 @@ def load(args, dba, dataset_id, logger, logfile):
         else:
           # Check for symbol discrepancies
           if p['sym'] != sym:
-            logger.warn("Symbol discrepancy: UniProt's=%s, HGNC's=%s" % (p['sym'], sym))
+            logger.warning("Symbol discrepancy: UniProt's=%s, HGNC's=%s" % (p['sym'], sym))
             symdiscr_ct += 1
         if geneid:
           # Add missing geneids
@@ -141,7 +141,7 @@ def load(args, dba, dataset_id, logger, logfile):
           else:
             # Check for geneid discrepancies
             if p['geneid'] != geneid:
-              logger.warn("GeneID discrepancy: UniProt's={}, HGNC's={}".format(p['geneid'], geneid))
+              logger.warning("GeneID discrepancy: UniProt's={}, HGNC's={}".format(p['geneid'], geneid))
               geneiddiscr_ct += 1
         pmark[pid] = True
   print("Processed {} lines - {} proteins annotated.".format(ct, len(pmark)))

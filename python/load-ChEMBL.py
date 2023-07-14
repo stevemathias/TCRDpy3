@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-10-27 12:39:19 smathias>
+# Time-stamp: <2022-09-05 15:59:22 smathias>
 """Load cmpd_activity data into TCRD from ChEMBL MySQL database.
 
 Usage:
@@ -24,9 +24,9 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2015-2021, Steve Mathias"
+__copyright__ = "Copyright 2015-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "6.2.0"
+__version__   = "6.3.0"
 
 import os,sys,time
 from docopt import docopt
@@ -45,7 +45,7 @@ PROGRAM = os.path.basename(sys.argv[0])
 TCRD_VER = '6' ## !!! CHECK THIS IS CORRECT !!! ##
 LOGDIR = f"../log/tcrd{TCRD_VER}logs/"
 LOGFILE = f"{LOGDIR}{PROGRAM}.log"
-CHEMBL_DB = 'chembl_29'
+CHEMBL_DB = 'chembl_31'
 DOWNLOAD_DIR = '../data/ChEMBL/'
 BASE_URL = 'ftp://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/latest/'
 UNIPROT2CHEMBL_FILE = 'chembl_uniprot_mapping.txt'
@@ -110,7 +110,7 @@ def download_mappings():
 
 def parse_mappings(fn):
   line_ct = slmf.wcl(fn)
-  print(f"\nProcessing {line_ct} input lines in mapping file {fn}")
+  print(f"\nProcessing {line_ct} lines in mapping file {fn}")
   up2chembl = {}
   with open(fn, 'r') as ifh:
     tsvreader = csv.reader(ifh, delimiter='\t')
@@ -149,7 +149,7 @@ def load(args, dba, up2chembl, chembldb, logfile, logger):
     tids = dba.find_target_ids({'uniprot': up}, incl_alias=True)
     if not tids:
       notfnd.add(up)
-      logger.warn(f"No TCRD target found for UniProt {up}")
+      logger.warning(f"No TCRD target found for UniProt {up}")
       continue
     tid = tids[0]
     tp = dba.get_targetprotein(tid)

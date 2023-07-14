@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Time-stamp: <2021-10-29 16:07:30 smathias>
+# Time-stamp: <2022-09-07 15:53:23 smathias>
 """Load links to external databases into TCRD.
 
 Usage:
@@ -24,9 +24,9 @@ Options:
 __author__    = "Steve Mathias"
 __email__     = "smathias @salud.unm.edu"
 __org__       = "Translational Informatics Division, UNM School of Medicine"
-__copyright__ = "Copyright 2021, Steve Mathias"
+__copyright__ = "Copyright 2021-2022, Steve Mathias"
 __license__   = "Creative Commons Attribution-NonCommercial (CC BY-NC)"
-__version__   = "1.1.0"
+__version__   = "2.0.0"
 
 import os,sys,time
 from docopt import docopt
@@ -89,7 +89,7 @@ def do_glygen(dba, logger, logfile):
         continue
       el_ct += 1
     elif ingg == False:
-      logger.warn(f"No GlyGen record for {p['uniprot']}")
+      logger.warning(f"No GlyGen record for {p['uniprot']}")
       notfnd.add(p['uniprot'])
       continue
     else:
@@ -121,7 +121,7 @@ def chk_glygen(up):
   Out[15]: 0
   So we have to check the results list in the returned JSON
   '''
-  resp = requests.get( GLYGEN_PROTEIN_SEARCH_URL.format(up), verify=False )
+  resp = requests.get( GLYGEN_PROTEIN_SEARCH_URL.format(up))
   if resp.status_code == 200:
     if len(resp.json()['results']) > 0:
       return True
@@ -158,8 +158,15 @@ if __name__ == '__main__':
   if not args['--quiet']:
     print("Connected to TCRD database {} (schema ver {}; data ver {})".format(args['--dbname'], dbi['schema_ver'], dbi['data_ver']))
 
+  print("\nDeleting existing extlinks and dataset...")
+  rv = dba.truncate_table('extlink')
+  assert rv, f"Error truncating table extink. See logfile {logfile} for details."
+  rv = dba.del_dataset('ExtLinks')
+  assert rv, f"Error deleting existing ExtLinks dataset/provenance. See logfile {logfile} for details."
+  print("Done.")
+
   start_time = time.time()
-  #do_glygen(dba, logger, logfile)
+  do_glygen(dba, logger, logfile)
   do_tiga(dba, logger, logfile)
   
   # Dataset

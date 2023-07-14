@@ -3,7 +3,7 @@ Delete methods for TCRD.DBadaptor
 
 Steve Mathias
 smathias@salud.unm.edu
-Time-stamp: <2021-04-27 15:14:29 smathias>
+Time-stamp: <2022-09-06 13:32:22 smathias>
 '''
 from mysql.connector import Error
 from contextlib import closing
@@ -27,6 +27,19 @@ class DeleteMethodsMixin:
         self._conn.rollback()
         return False
     return row_ct
+
+  def truncate_table(self, table_name):
+    if not table_name:
+      self.warning("No table name sent to truncate_table()")
+      return False
+    sql = f"TRUNCATE TABLE {table_name}"
+    with closing(self._conn.cursor()) as curs:
+      try:
+        curs.execute(sql)
+      except Error as e:
+        self._logger.error(f"MySQL Error in truncate_table for table {table_name}: {e}")
+        return False
+    return True
 
   def del_dataset(self, name):
     if not name:
